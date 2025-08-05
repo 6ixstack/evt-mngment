@@ -190,8 +190,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         provider: 'google',
         options: {
           redirectTo: userType === 'provider' 
-            ? `${window.location.origin}/provider-dashboard`
-            : `${window.location.origin}/dashboard`,
+            ? `${window.location.origin}/evt-mngment/provider-dashboard`
+            : `${window.location.origin}/evt-mngment/dashboard`,
           queryParams: {
             user_type: userType
           }
