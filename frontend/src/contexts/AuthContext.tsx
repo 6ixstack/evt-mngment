@@ -168,6 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Fetching user profile for:', userId);
       const { data, error } = await supabase
         .from('users')
         .select(`
@@ -179,12 +180,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        console.log('Profile fetch error details:', error.message, error.code);
+        
+        // If user doesn't exist in our users table, create a basic profile
+        if (error.code === 'PGRST116') {
+          console.log('User not found in users table, creating basic profile...');
+          await createUserProfile(userId);
+          return;
+        }
+        
         toast.error('Failed to load user profile');
       } else {
+        console.log('User profile loaded:', data);
         setUserProfile(data);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createUserProfile = async (userId: string) => {
+    try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) return;
+
+      console.log('Creating user profile for:', user.data.user.email);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          name: user.data.user.user_metadata?.full_name || user.data.user.email,
+          email: user.data.user.email,
+          type: 'user'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating user profile:', error);
+        toast.error('Failed to create user profile');
+      } else {
+        console.log('User profile created:', data);
+        setUserProfile(data);
+      }
+    } catch (error) {
+      console.error('Error creating user profile:', error);
     } finally {
       setLoading(false);
     }
