@@ -5,6 +5,7 @@ import { Dashboard } from '@/pages/Dashboard';
 import { ProviderDashboard } from '@/pages/ProviderDashboard';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { AuthCallback } from '@/components/AuthCallback';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <div className="App">
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route 
               path="/dashboard" 
               element={

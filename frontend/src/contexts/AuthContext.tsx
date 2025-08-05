@@ -37,21 +37,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
+    // Handle OAuth callback and get initial session
+    const initializeAuth = async () => {
+      try {
+        // Handle OAuth callback if present in URL
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth error:', error);
+        }
+        
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        
+        if (data.session?.user) {
+          await fetchUserProfile(data.session.user.id);
+        } else {
+          setLoading(false);
+        }
+
+        // Clean up URL hash after processing OAuth callback
+        if (window.location.hash.includes('access_token')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
         setLoading(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -60,6 +81,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         setUserProfile(null);
         setLoading(false);
+      }
+
+      // Redirect to dashboard after successful OAuth sign in
+      if (event === 'SIGNED_IN' && session?.user && window.location.pathname === '/evt-mngment/') {
+        const userType = session.user.user_metadata?.user_type || 'user';
+        const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+        window.location.href = redirectPath;
       }
     });
 
