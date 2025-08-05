@@ -104,9 +104,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (session?.user) {
         console.log('User signed in, fetching profile...');
-        await fetchUserProfile(session.user.id);
         
-        // Redirect to dashboard after successful sign in
+        // Redirect to dashboard after successful sign in - do this first
         if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
           console.log('Redirecting to dashboard...');
           
@@ -118,10 +117,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
           console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
           
-          setTimeout(() => {
-            window.location.href = redirectPath;
-          }, 1000); // Small delay to ensure session is fully set
+          // Immediate redirect without waiting for profile fetch
+          window.location.href = redirectPath;
+          return; // Exit early to prevent profile fetch delay
         }
+        
+        // Fetch profile for other cases (not during redirect)
+        await fetchUserProfile(session.user.id);
       } else {
         console.log('No user session, setting loading to false');
         setUserProfile(null);
