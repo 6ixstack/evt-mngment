@@ -21,13 +21,12 @@ const PORT = process.env.PORT || 3001;
 
 // Rate limiting
 const rateLimiter = new RateLimiterMemory({
-  keyGenerator: (req: express.Request) => req.ip,
   points: 100, // Number of requests
   duration: 60, // Per 60 seconds
 });
 
 const rateLimiterMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  rateLimiter.consume(req.ip)
+  rateLimiter.consume(req.ip || 'anonymous')
     .then(() => {
       next();
     })
