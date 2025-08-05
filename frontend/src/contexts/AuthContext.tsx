@@ -155,115 +155,72 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
+    console.log('=== DIAGNOSTIC: Starting profile fetch ===');
+    console.log('User ID:', userId);
+    console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+    console.log('Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing');
+    console.log('Environment:', import.meta.env.MODE);
+    
     try {
-      console.log('Fetching user profile for:', userId);
+      // First, test basic Supabase connectivity
+      console.log('Testing Supabase connectivity...');
+      const connectivityTest = await supabase.from('users').select('count').limit(1);
+      console.log('Connectivity test result:', connectivityTest);
       
-      // Add timeout to prevent hanging - reduced to 5 seconds for better UX
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-      );
+      if (connectivityTest.error) {
+        console.error('DIAGNOSTIC: Supabase connectivity failed:', connectivityTest.error);
+        console.log('Error details:', {
+          message: connectivityTest.error.message,
+          code: connectivityTest.error.code,
+          details: connectivityTest.error.details,
+          hint: connectivityTest.error.hint
+        });
+        
+        // Check if it's a table doesn't exist error
+        if (connectivityTest.error.code === '42P01') {
+          console.error('DIAGNOSTIC: "users" table does not exist in database');
+        } else if (connectivityTest.error.code === '42501') {
+          console.error('DIAGNOSTIC: Permission denied - check RLS policies');
+        }
+        
+        setLoading(false);
+        return;
+      }
       
-      const fetchPromise = supabase
+      console.log('Supabase connectivity OK, fetching user profile...');
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-
       if (error) {
-        console.error('Error fetching user profile:', error);
-        console.log('Profile fetch error details:', error.message, error.code, error.details);
+        console.error('DIAGNOSTIC: Profile fetch error:', error);
+        console.log('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         
-        // If user doesn't exist in our users table, create a basic profile
         if (error.code === 'PGRST116') {
-          console.log('User not found in users table, creating basic profile...');
-          await createUserProfile(userId);
-          return;
+          console.log('DIAGNOSTIC: User record not found in users table');
         }
-        
-        // For any other error, create a basic profile and continue
-        console.log('Database error, creating basic profile and continuing...');
-        await createUserProfile(userId);
-        return;
       } else {
-        console.log('User profile loaded:', data);
+        console.log('DIAGNOSTIC: Profile fetch successful:', data);
         setUserProfile(data);
       }
     } catch (error: any) {
-      console.error('Error fetching user profile:', error);
-      
-      // If database is not accessible, create a basic profile to allow access
-      if (error.message === 'Profile fetch timeout' || error.message?.includes('Failed to fetch')) {
-        console.log('Database timeout/unavailable, creating basic profile...');
-        await createUserProfile(userId);
-        return;
-      }
+      console.error('DIAGNOSTIC: Unexpected error:', error);
+      console.log('Error type:', typeof error);
+      console.log('Error message:', error.message);
+      console.log('Error stack:', error.stack);
     } finally {
-      console.log('Profile fetch completed, setting loading to false');
+      console.log('=== DIAGNOSTIC: Profile fetch completed ===');
       setLoading(false);
     }
   };
 
-  const createUserProfile = async (userId: string) => {
-    try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
-        console.log('No user data available, creating minimal profile');
-        // Create minimal profile without database
-        setUserProfile({
-          id: userId,
-          name: 'User',
-          email: 'user@example.com',
-          type: 'user'
-        });
-        return;
-      }
-
-      console.log('Creating user profile for:', user.data.user.email);
-      
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          id: userId,
-          name: user.data.user.user_metadata?.full_name || user.data.user.email?.split('@')[0] || 'User',
-          email: user.data.user.email,
-          type: 'user'
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating user profile:', error);
-        console.log('Database unavailable, creating basic profile in memory...');
-        
-        // If database is unavailable, create basic profile in memory
-        setUserProfile({
-          id: userId,
-          name: user.data.user.user_metadata?.full_name || user.data.user.email?.split('@')[0] || 'User',
-          email: user.data.user.email,
-          type: 'user'
-        });
-      } else {
-        console.log('User profile created:', data);
-        setUserProfile(data);
-      }
-    } catch (error) {
-      console.error('Error creating user profile:', error);
-      
-      // Fallback: create minimal profile to allow access
-      console.log('Creating fallback profile...');
-      setUserProfile({
-        id: userId,
-        name: 'User',
-        email: 'user@example.com',
-        type: 'user'
-      });
-    } finally {
-      console.log('Profile creation completed, setting loading to false');
-      setLoading(false);
-    }
-  };
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
