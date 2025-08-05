@@ -236,6 +236,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
   const signUp = async (email: string, password: string, userData: any) => {
+    console.log('=== SIGNUP DEBUG: Starting signup process ===');
+    console.log('Email:', email);
+    console.log('User data:', userData);
+    
     try {
       setLoading(true);
       
@@ -269,6 +273,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // If provider, create provider profile
       if (userData.type === 'provider') {
+        console.log('Creating provider profile...', userData);
         const { error: providerError } = await supabase
           .from('providers')
           .insert({
@@ -278,23 +283,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             phone: userData.phone,
             location_city: userData.location_city,
             location_province: userData.location_province,
-            location_lat: userData.location_lat,
-            location_lng: userData.location_lng,
+            location_lat: null, // Will be set later via geocoding
+            location_lng: null, // Will be set later via geocoding
             description: userData.description,
             tags: userData.tags || []
           });
 
         if (providerError) {
+          console.error('Provider profile creation error:', providerError);
           throw providerError;
         }
+        
+        console.log('Provider profile created successfully');
       }
 
       toast.success('Account created successfully! Please check your email to verify your account.');
       
       // For demo purposes, redirect to dashboard immediately
       // In production, wait for email verification
+      console.log('Redirecting user after sign-up...', userData.type);
       if (userData.type === 'user') {
-        window.location.href = '/dashboard';
+        window.location.href = '/evt-mngment/dashboard';
+      } else if (userData.type === 'provider') {
+        window.location.href = '/evt-mngment/provider-dashboard';
       }
     } catch (error: any) {
       console.error('Sign up error:', error);
