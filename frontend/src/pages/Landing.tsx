@@ -18,29 +18,6 @@ export const Landing: React.FC = () => {
   });
   
   const [, setSelectedEventType] = useState<string>('Wedding');
-  const [debugInfo, setDebugInfo] = useState<string>('');
-
-  useEffect(() => {
-    // Debug OAuth callback
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
-    
-    let debug = `Debug Info:\n`;
-    debug += `- Has access_token in URL: ${!!accessToken}\n`;
-    debug += `- Has refresh_token in URL: ${!!refreshToken}\n`;
-    debug += `- User: ${user?.email || 'None'}\n`;
-    debug += `- Session: ${!!session}\n`;
-    debug += `- Loading: ${loading}\n`;
-    debug += `- URL hash: ${window.location.hash}\n`;
-    
-    // Check localStorage
-    const supabaseData = localStorage.getItem('supabase.auth.token');
-    debug += `- localStorage has supabase token: ${!!supabaseData}\n`;
-    
-    setDebugInfo(debug);
-    console.log(debug);
-  }, [user, session, loading]);
 
   const handleAuthModalOpen = (mode: 'signin' | 'signup' | 'provider-signup') => {
     setAuthModal({ isOpen: true, mode });
