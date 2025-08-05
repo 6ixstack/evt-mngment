@@ -38,8 +38,30 @@ const rateLimiterMiddleware = (req: express.Request, res: express.Response, next
 // Middleware
 app.use(helmet());
 app.use(compression());
+// CORS configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://6ixstack.github.io',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is allowed
+    if (allowedOrigins.some(allowedOrigin => 
+      origin === allowedOrigin || origin.startsWith(allowedOrigin + '/')
+    )) {
+      return callback(null, true);
+    }
+    
+    // Log unauthorized attempts
+    console.warn(`CORS blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(morgan('combined'));
