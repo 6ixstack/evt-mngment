@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Landing } from '@/pages/Landing';
-import { TestDashboard } from '@/pages/TestDashboard';
+import { Dashboard } from '@/pages/Dashboard';
 import { ProviderDashboard } from '@/pages/ProviderDashboard';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -19,7 +19,7 @@ function App() {
               path="/dashboard" 
               element={
                 <ProtectedRoute>
-                  <TestDashboard />
+                  <Dashboard />
                 </ProtectedRoute>
               } 
             />
