@@ -22,6 +22,8 @@ export const Landing: React.FC = () => {
 
   // Redirect signed-in users to their dashboard
   useEffect(() => {
+    console.log('REDIRECT CHECK:', { loading, hasUser: !!user, isRedirecting });
+    
     if (!loading && user && !isRedirecting) {
       console.log('User already signed in, redirecting to dashboard...');
       setIsRedirecting(true);
@@ -31,6 +33,7 @@ export const Landing: React.FC = () => {
       
       // Small delay to prevent flash of landing page
       setTimeout(() => {
+        console.log('Executing redirect to:', redirectPath);
         window.location.href = redirectPath;
       }, 500);
     }

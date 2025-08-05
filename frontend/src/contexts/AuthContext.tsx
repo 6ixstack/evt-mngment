@@ -162,9 +162,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('Environment:', import.meta.env.MODE);
     
     try {
-      // First, test basic Supabase connectivity
+      // First, test basic Supabase connectivity with timeout
       console.log('Testing Supabase connectivity...');
-      const connectivityTest = await supabase.from('users').select('count').limit(1);
+      
+      const connectivityPromise = supabase.from('users').select('count').limit(1);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Connectivity test timeout')), 3000)
+      );
+      
+      const connectivityTest = await Promise.race([connectivityPromise, timeoutPromise]);
       console.log('Connectivity test result:', connectivityTest);
       
       if (connectivityTest.error) {
@@ -214,7 +220,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('DIAGNOSTIC: Unexpected error:', error);
       console.log('Error type:', typeof error);
       console.log('Error message:', error.message);
-      console.log('Error stack:', error.stack);
+      
+      if (error.message === 'Connectivity test timeout') {
+        console.error('DIAGNOSTIC: Supabase connectivity timeout - possible issues:');
+        console.error('1. Supabase project is paused/inactive');
+        console.error('2. Network connectivity issues');
+        console.error('3. Invalid Supabase URL or credentials');
+        console.error('4. Firewall/proxy blocking connection');
+      }
     } finally {
       console.log('=== DIAGNOSTIC: Profile fetch completed ===');
       setLoading(false);
