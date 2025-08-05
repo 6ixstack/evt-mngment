@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { HowItWorks } from '@/components/HowItWorks';
 import { TrustedVendors } from '@/components/TrustedVendors';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
-import { useAuth } from '@/contexts/AuthContext';
 
 export const Landing: React.FC = () => {
-  const { user, session, loading } = useAuth();
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
     mode: 'signin' | 'signup' | 'provider-signup';
