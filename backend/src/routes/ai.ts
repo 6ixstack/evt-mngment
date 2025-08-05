@@ -5,7 +5,7 @@ import { authMiddleware } from '../middleware/auth';
 const router = express.Router();
 const aiController = new AIController();
 
-router.post('/generate-plan', authMiddleware, aiController.generatePlan);
-router.post('/refine-step', authMiddleware, aiController.refineStep);
+router.post('/generate-plan', authMiddleware, aiController.generatePlan.bind(aiController));
+router.post('/refine-step', authMiddleware, aiController.refineStep.bind(aiController));
 
 export default router;

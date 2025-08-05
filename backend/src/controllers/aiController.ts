@@ -7,8 +7,14 @@ export class AIController {
   private openai: OpenAI;
 
   constructor() {
+    console.log('🤖 Initializing AI Controller...');
+    console.log('Azure API Key:', process.env.AZURE_OPENAI_API_KEY ? 'Present' : 'Missing');
+    console.log('Azure Endpoint:', process.env.AZURE_OPENAI_ENDPOINT || 'Missing');
+    console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? 'Present' : 'Missing');
+    
     // Prefer Azure OpenAI, fallback to OpenAI
     if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
+      console.log('🔵 Using Azure OpenAI');
       this.openai = new OpenAI({
         apiKey: process.env.AZURE_OPENAI_API_KEY,
         baseURL: process.env.AZURE_OPENAI_ENDPOINT,
@@ -18,12 +24,16 @@ export class AIController {
         },
       });
     } else if (process.env.OPENAI_API_KEY) {
+      console.log('🟢 Using OpenAI');
       this.openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
       });
     } else {
+      console.error('❌ No AI API keys configured');
       throw new Error('Either AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT or OPENAI_API_KEY must be configured');
     }
+    
+    console.log('✅ AI Controller initialized successfully');
   }
 
   async generatePlan(req: AuthRequest, res: Response) {
