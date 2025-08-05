@@ -40,25 +40,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Handle OAuth callback and get initial session
     const initializeAuth = async () => {
       try {
-        // Handle OAuth callback if present in URL
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Auth error:', error);
-        }
-        
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
-        
-        if (data.session?.user) {
-          await fetchUserProfile(data.session.user.id);
-        } else {
-          setLoading(false);
-        }
+        // Check if we have OAuth callback tokens in URL hash
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
 
-        // Clean up URL hash after processing OAuth callback
-        if (window.location.hash.includes('access_token')) {
+        if (accessToken && refreshToken) {
+          console.log('Processing OAuth callback tokens...');
+          
+          // Set the session using the tokens from URL
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          if (error) {
+            console.error('Error setting session from OAuth tokens:', error);
+          } else {
+            console.log('Session set successfully from OAuth tokens:', data.user?.email);
+          }
+
+          // Clean up URL hash after processing
           window.history.replaceState(null, '', window.location.pathname);
+        } else {
+          // No OAuth tokens, just get existing session
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Auth error:', error);
+          }
+          
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+          
+          if (data.session?.user) {
+            await fetchUserProfile(data.session.user.id);
+          } else {
+            setLoading(false);
+          }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -73,21 +92,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        console.log('User signed in, fetching profile...');
         await fetchUserProfile(session.user.id);
+        
+        // Redirect to dashboard after successful sign in
+        if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
+          console.log('Redirecting to dashboard...');
+          const userType = session.user.user_metadata?.user_type || 'user';
+          const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+          setTimeout(() => {
+            window.location.href = redirectPath;
+          }, 1000); // Small delay to ensure session is fully set
+        }
       } else {
+        console.log('No user session, setting loading to false');
         setUserProfile(null);
         setLoading(false);
-      }
-
-      // Redirect to dashboard after successful OAuth sign in
-      if (event === 'SIGNED_IN' && session?.user && window.location.pathname === '/evt-mngment/') {
-        const userType = session.user.user_metadata?.user_type || 'user';
-        const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
-        window.location.href = redirectPath;
       }
     });
 
