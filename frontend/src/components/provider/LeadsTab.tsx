@@ -6,7 +6,6 @@ import {
   EnvelopeIcon,
   CalendarIcon,
   UserIcon,
-  EyeIcon,
   CheckCircleIcon,
   ClockIcon,
   ChatBubbleLeftRightIcon

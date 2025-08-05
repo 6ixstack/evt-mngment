@@ -15,7 +15,7 @@ export const Landing: React.FC = () => {
     mode: 'signin'
   });
   
-  const [selectedEventType, setSelectedEventType] = useState<string>('Wedding');
+  const [, setSelectedEventType] = useState<string>('Wedding');
 
   const handleAuthModalOpen = (mode: 'signin' | 'signup' | 'provider-signup') => {
     setAuthModal({ isOpen: true, mode });

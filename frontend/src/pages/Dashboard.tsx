@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -43,13 +43,13 @@ interface Event {
 }
 
 export const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [currentStep, setCurrentStep] = useState<'select' | 'describe' | 'generating' | 'plan'>('select');
   const [selectedEventType, setSelectedEventType] = useState<string>('Wedding');
   const [eventDescription, setEventDescription] = useState<string>('');
   const [generatedPlan, setGeneratedPlan] = useState<Step[]>([]);
   const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [, setIsGenerating] = useState(false);
 
   const placeholderTexts = {
     Wedding: "A 3-day wedding with 200 guests, halal food, in Toronto in July. We want elegant decorations and professional photography.",

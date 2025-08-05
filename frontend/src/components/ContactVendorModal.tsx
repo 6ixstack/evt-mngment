@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { 
   EnvelopeIcon,
   MapPinIcon,
@@ -35,7 +34,7 @@ export const ContactVendorModal: React.FC<ContactVendorModalProps> = ({
   provider,
   stepId
 }) => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 

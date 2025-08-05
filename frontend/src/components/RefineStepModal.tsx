@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -39,7 +38,7 @@ export const RefineStepModal: React.FC<RefineStepModalProps> = ({
   step,
   onRefineComplete
 }) => {
-  const { user } = useAuth();
+  const { session } = useAuth();
   const [refinementPrompt, setRefinementPrompt] = useState('');
   const [isRefining, setIsRefining] = useState(false);
 

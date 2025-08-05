@@ -32,7 +32,7 @@ interface ProviderSearchProps {
 
 export const ProviderSearch: React.FC<ProviderSearchProps> = ({ 
   eventType,
-  onProviderSelect 
+  onProviderSelect: _onProviderSelect 
 }) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(false);
@@ -269,7 +269,7 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <LoadingSkeleton key={i} className="h-64" />
+              <LoadingSkeleton key={i} />
             ))}
           </div>
         ) : providers.length === 0 ? (
@@ -296,8 +296,8 @@ export const ProviderSearch: React.FC<ProviderSearchProps> = ({
               {providers.map((provider) => (
                 <VendorCard
                   key={provider.id}
-                  vendor={provider}
-                  onContactClick={onProviderSelect}
+                  provider={provider}
+                  stepId="search"
                 />
               ))}
             </div>

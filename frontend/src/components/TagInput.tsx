@@ -1,5 +1,4 @@
-import React, { useState, KeyboardEvent } from 'react';
-import { Input } from '@/components/ui/input';
+import React, { useState, type KeyboardEvent } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 

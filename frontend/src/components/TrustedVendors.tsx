@@ -128,7 +128,7 @@ export const TrustedVendors: React.FC = () => {
     return labels[type] || type;
   };
 
-  const renderStars = (rating: number) => {
+  const renderStars = (rating: number, reviewsCount: number = 0) => {
     return (
       <div className="flex items-center gap-1">
         {[...Array(5)].map((_, i) => {
@@ -140,7 +140,7 @@ export const TrustedVendors: React.FC = () => {
           );
         })}
         <span className="text-sm text-gray-600 ml-1">
-          {rating} ({reviews_count} reviews)
+          {rating} ({reviewsCount} reviews)
         </span>
       </div>
     );
@@ -224,7 +224,7 @@ export const TrustedVendors: React.FC = () => {
                       </div>
 
                       <div className="mb-3">
-                        {renderStars(vendor.rating)}
+                        {renderStars(vendor.rating, vendor.reviews_count || 0)}
                       </div>
 
                       <p className="text-gray-600 text-sm mb-4 line-clamp-3">

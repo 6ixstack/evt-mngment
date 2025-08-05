@@ -8,7 +8,6 @@ import { TagInput } from '@/components/TagInput';
 import { 
   PencilIcon,
   PhotoIcon,
-  MapPinIcon,
   TagIcon,
   CheckIcon,
   XMarkIcon
@@ -90,12 +89,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ provider, onUpdate }) =>
     });
   };
 
-  const handleLogoUpload = (url: string) => {
-    setValue('logo_url', url);
+  const handleLogoUpload = (url: string | string[]) => {
+    setValue('logo_url', Array.isArray(url) ? url[0] : url);
   };
 
-  const handleImagesUpload = (urls: string[]) => {
-    setValue('sample_images', urls);
+  const handleImagesUpload = (urls: string | string[]) => {
+    setValue('sample_images', Array.isArray(urls) ? urls : [urls]);
   };
 
   const handleTagsChange = (tags: string[]) => {
@@ -155,7 +154,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ provider, onUpdate }) =>
                   className={!isEditing ? 'bg-gray-50' : ''}
                 />
                 {errors.business_name && (
-                  <p className="text-red-500 text-sm mt-1">{errors.business_name.message}</p>
+                  <p className="text-red-500 text-sm mt-1">{String(errors.business_name?.message) || 'This field is required'}</p>
                 )}
               </div>
 
@@ -176,7 +175,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ provider, onUpdate }) =>
                   ))}
                 </select>
                 {errors.provider_type && (
-                  <p className="text-red-500 text-sm mt-1">{errors.provider_type.message}</p>
+                  <p className="text-red-500 text-sm mt-1">{String(errors.provider_type?.message) || 'This field is required'}</p>
                 )}
               </div>
 
@@ -190,7 +189,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ provider, onUpdate }) =>
                   className={!isEditing ? 'bg-gray-50' : ''}
                 />
                 {errors.phone && (
-                  <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
+                  <p className="text-red-500 text-sm mt-1">{String(errors.phone?.message) || 'This field is required'}</p>
                 )}
               </div>
 
@@ -211,7 +210,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ provider, onUpdate }) =>
                   ))}
                 </select>
                 {errors.location_province && (
-                  <p className="text-red-500 text-sm mt-1">{errors.location_province.message}</p>
+                  <p className="text-red-500 text-sm mt-1">{String(errors.location_province?.message) || 'This field is required'}</p>
                 )}
               </div>
 
@@ -225,7 +224,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ provider, onUpdate }) =>
                   className={!isEditing ? 'bg-gray-50' : ''}
                 />
                 {errors.location_city && (
-                  <p className="text-red-500 text-sm mt-1">{errors.location_city.message}</p>
+                  <p className="text-red-500 text-sm mt-1">{String(errors.location_city?.message) || 'This field is required'}</p>
                 )}
               </div>
             </div>
@@ -245,7 +244,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ provider, onUpdate }) =>
                 placeholder="Describe your services, specialties, and what makes your business unique..."
               />
               {errors.description && (
-                <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
+                <p className="text-red-500 text-sm mt-1">{String(errors.description?.message) || 'This field is required'}</p>
               )}
               <p className="text-sm text-gray-500 mt-1">
                 {watch('description')?.length || 0}/1000 characters
