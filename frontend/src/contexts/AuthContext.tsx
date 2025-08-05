@@ -105,25 +105,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (session?.user) {
         console.log('User signed in, fetching profile...');
         
-        // Redirect to dashboard after successful sign in - do this first
+        // Redirect to dashboard after successful OAuth sign in (only if we have user_type param)
         if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
-          console.log('Redirecting to dashboard...');
-          
-          // Check URL params for user_type first, then user metadata, then default to 'user'
           const urlParams = new URLSearchParams(window.location.search);
           const userTypeFromUrl = urlParams.get('user_type');
-          const userType = userTypeFromUrl || session.user.user_metadata?.user_type || 'user';
           
-          const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
-          console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
-          
-          // Immediate redirect without waiting for profile fetch
-          window.location.href = redirectPath;
-          return; // Exit early to prevent profile fetch delay
+          // Only redirect immediately if this is an OAuth callback (has user_type param)
+          if (userTypeFromUrl) {
+            console.log('OAuth redirect to dashboard...');
+            const userType = userTypeFromUrl || session.user.user_metadata?.user_type || 'user';
+            const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+            console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
+            
+            // Immediate redirect without waiting for profile fetch
+            window.location.href = redirectPath;
+            return; // Exit early to prevent profile fetch delay
+          }
         }
         
-        // Fetch profile for other cases (not during redirect)
+        // Fetch profile for other cases (not during OAuth redirect)
         await fetchUserProfile(session.user.id);
+        
+        // After profile fetch, redirect for regular sign-in
+        if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const userTypeFromUrl = urlParams.get('user_type');
+          
+          // Only redirect if this is NOT an OAuth callback (no user_type param)
+          if (!userTypeFromUrl) {
+            console.log('Regular sign-in redirect to dashboard...');
+            const userType = session.user.user_metadata?.user_type || 'user';
+            const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+            console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
+            
+            setTimeout(() => {
+              window.location.href = redirectPath;
+            }, 500); // Small delay to ensure profile is loaded
+          }
+        }
       } else {
         console.log('No user session, setting loading to false');
         setUserProfile(null);
@@ -241,12 +260,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       toast.success('Signed in successfully!');
+      // Don't set loading to false here - let onAuthStateChange handle it
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast.error(error.message || 'Failed to sign in');
-      throw error;
-    } finally {
       setLoading(false);
+      throw error;
     }
   };
 
