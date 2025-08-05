@@ -3,9 +3,6 @@ name: Deploy EventCraft Platform
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
