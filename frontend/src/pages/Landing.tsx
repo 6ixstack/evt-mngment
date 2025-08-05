@@ -8,7 +8,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const Landing: React.FC = () => {
-  const { user, userProfile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
     mode: 'signin' | 'signup' | 'provider-signup';
@@ -18,20 +18,23 @@ export const Landing: React.FC = () => {
   });
   
   const [, setSelectedEventType] = useState<string>('Wedding');
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Redirect signed-in users to their dashboard
   useEffect(() => {
-    if (!loading && user && userProfile) {
+    if (!loading && user && !isRedirecting) {
       console.log('User already signed in, redirecting to dashboard...');
-      const userType = userProfile.type || 'user';
-      const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+      setIsRedirecting(true);
+      
+      // Default to user dashboard since we can't wait for profile
+      const redirectPath = '/evt-mngment/dashboard';
       
       // Small delay to prevent flash of landing page
       setTimeout(() => {
         window.location.href = redirectPath;
       }, 500);
     }
-  }, [user, userProfile, loading]);
+  }, [user, loading, isRedirecting]);
 
   const handleAuthModalOpen = (mode: 'signin' | 'signup' | 'provider-signup') => {
     setAuthModal({ isOpen: true, mode });
@@ -44,6 +47,18 @@ export const Landing: React.FC = () => {
   const handleEventSelect = (eventType: string) => {
     setSelectedEventType(eventType);
   };
+
+  // Show loading screen while redirecting
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
