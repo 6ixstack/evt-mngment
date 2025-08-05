@@ -56,18 +56,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           if (error) {
             console.error('Error setting session from OAuth tokens:', error);
+            setLoading(false);
           } else {
             console.log('Session set successfully from OAuth tokens:', data.user?.email);
+            // Don't set loading to false here - let onAuthStateChange handle it
           }
 
-          // Clean up URL hash after processing
-          window.history.replaceState(null, '', window.location.pathname);
+          // Clean up URL hash after processing but preserve search params
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
         } else {
           // No OAuth tokens, just get existing session
           const { data, error } = await supabase.auth.getSession();
           
           if (error) {
             console.error('Auth error:', error);
+            setLoading(false);
+            return;
           }
           
           setSession(data.session);
@@ -92,6 +96,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
+      console.log('Current pathname:', window.location.pathname);
+      console.log('Session exists:', !!session);
       
       setSession(session);
       setUser(session?.user ?? null);
@@ -103,8 +109,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Redirect to dashboard after successful sign in
         if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
           console.log('Redirecting to dashboard...');
-          const userType = session.user.user_metadata?.user_type || 'user';
+          
+          // Check URL params for user_type first, then user metadata, then default to 'user'
+          const urlParams = new URLSearchParams(window.location.search);
+          const userTypeFromUrl = urlParams.get('user_type');
+          const userType = userTypeFromUrl || session.user.user_metadata?.user_type || 'user';
+          
           const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+          console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
+          
           setTimeout(() => {
             window.location.href = redirectPath;
           }, 1000); // Small delay to ensure session is fully set
@@ -242,9 +255,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: userType === 'provider' 
-            ? `${window.location.origin}/evt-mngment/provider-dashboard`
-            : `${window.location.origin}/evt-mngment/dashboard`,
+          redirectTo: `${window.location.origin}/evt-mngment/?user_type=${userType}`,
           queryParams: {
             user_type: userType
           }
