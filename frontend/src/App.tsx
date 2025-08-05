@@ -9,7 +9,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <Router basename="/evt-mngment">
         <div className="App">
           <Routes>
             <Route path="/" element={<Landing />} />
