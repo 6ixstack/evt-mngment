@@ -40,6 +40,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Handle OAuth callback and get initial session
     const initializeAuth = async () => {
       try {
+        // Check for stored redirect path from 404.html
+        const storedRedirectPath = sessionStorage.getItem('redirectPath');
+        if (storedRedirectPath && storedRedirectPath !== '/evt-mngment/') {
+          console.log('Found stored redirect path:', storedRedirectPath);
+          sessionStorage.removeItem('redirectPath');
+        }
+        
         // Check if we have OAuth callback tokens in URL hash
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
@@ -78,6 +85,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(data.session?.user ?? null);
           
           if (data.session?.user) {
+            // If user is already signed in and we have a stored redirect path, use it
+            if (storedRedirectPath && storedRedirectPath !== '/evt-mngment/') {
+              console.log('Redirecting authenticated user to stored path:', storedRedirectPath);
+              window.location.href = storedRedirectPath;
+              return;
+            }
             await fetchUserProfile(data.session.user.id);
           } else {
             setLoading(false);
