@@ -27,27 +27,47 @@ export const Landing: React.FC = () => {
       const oauthUserType = sessionStorage.getItem('oauth_user_type');
       
       if (user && oauthUserType) {
-        console.log('OAuth callback detected, setting user type:', oauthUserType);
+        console.log('OAuth callback detected, creating user profile:', oauthUserType);
         
-        // Call RPC function to set user type
-        const { error } = await supabase.rpc('set_user_type', {
-          user_id: user.id,
-          new_user_type: oauthUserType
-        });
+        // Create user profile directly
+        const { error } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            email: user.email || '',
+            type: oauthUserType as 'user' | 'provider'
+          });
         
-        if (error) {
-          console.error('Error setting user type:', error);
+        if (error && error.code !== '23505') {
+          // Ignore duplicate key errors
+          console.error('Error creating user profile:', error);
         }
         
         // Clear stored type
         sessionStorage.removeItem('oauth_user_type');
+        
+        // Refetch user profile
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (profile) {
+          // Navigate to appropriate dashboard
+          const redirectPath = profile.type === 'provider' 
+            ? '/provider-dashboard' 
+            : '/dashboard';
+          navigate(redirectPath);
+        }
       }
     };
 
     if (user && !loading) {
       handleOAuthCallback();
     }
-  }, [user, loading]);
+  }, [user, loading, navigate]);
 
   // Redirect authenticated users to their dashboard
   useEffect(() => {
