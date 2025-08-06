@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { DashboardWrapper } from '@/components/DashboardWrapper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,7 +44,7 @@ interface Event {
   checklist_json: any;
 }
 
-export const Dashboard: React.FC = () => {
+const DashboardContent: React.FC = () => {
   const { user, session, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState<'select' | 'describe' | 'generating' | 'plan'>('select');
   const [selectedEventType, setSelectedEventType] = useState<string>('Wedding');
@@ -323,5 +324,13 @@ export const Dashboard: React.FC = () => {
         </AnimatePresence>
       </div>
     </div>
+  );
+};
+
+export const Dashboard: React.FC = () => {
+  return (
+    <DashboardWrapper requiredUserType="user">
+      <DashboardContent />
+    </DashboardWrapper>
   );
 };

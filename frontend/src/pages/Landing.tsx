@@ -8,7 +8,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const Landing: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, userProfile, loading } = useAuth();
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
     mode: 'signin' | 'signup' | 'provider-signup';
@@ -22,22 +22,30 @@ export const Landing: React.FC = () => {
 
   // Redirect signed-in users to their dashboard
   useEffect(() => {
-    console.log('REDIRECT CHECK:', { loading, hasUser: !!user, isRedirecting });
+    console.log('REDIRECT CHECK:', { 
+      loading, 
+      hasUser: !!user, 
+      hasProfile: !!userProfile,
+      userType: userProfile?.type,
+      isRedirecting 
+    });
     
     if (!loading && user && !isRedirecting) {
-      console.log('User already signed in, redirecting to dashboard...');
+      console.log('User signed in, determining redirect...');
       setIsRedirecting(true);
       
-      // Default to user dashboard since we can't wait for profile
-      const redirectPath = '/evt-mngment/dashboard';
-      
-      // Small delay to prevent flash of landing page
+      // Wait a bit for profile to load, then redirect based on user type
       setTimeout(() => {
-        console.log('Executing redirect to:', redirectPath);
+        const userType = userProfile?.type || 'user';
+        const redirectPath = userType === 'provider' 
+          ? '/evt-mngment/provider-dashboard' 
+          : '/evt-mngment/dashboard';
+        
+        console.log(`Redirecting ${userType} to: ${redirectPath}`);
         window.location.href = redirectPath;
-      }, 500);
+      }, 1000); // Longer delay to allow profile loading
     }
-  }, [user, loading, isRedirecting]);
+  }, [user, userProfile, loading, isRedirecting]);
 
   const handleAuthModalOpen = (mode: 'signin' | 'signup' | 'provider-signup') => {
     setAuthModal({ isOpen: true, mode });

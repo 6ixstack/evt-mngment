@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { DashboardWrapper } from '@/components/DashboardWrapper';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +9,7 @@ import { ProfileTab } from '@/components/provider/ProfileTab';
 import { LeadsTab } from '@/components/provider/LeadsTab';
 import { SubscriptionTab } from '@/components/provider/SubscriptionTab';
 import { AnalyticsTab } from '@/components/provider/AnalyticsTab';
+import { ProviderOnboarding } from '@/components/provider/ProviderOnboarding';
 import { 
   UserIcon,
   EnvelopeIcon,
@@ -17,18 +20,56 @@ import {
   ArrowLeftOnRectangleIcon
 } from '@heroicons/react/24/outline';
 
-export const ProviderDashboard: React.FC = () => {
+const ProviderDashboardContent: React.FC = () => {
   const { user, userProfile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [provider, setProvider] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
-    if (userProfile?.provider) {
-      setProvider(userProfile.provider);
-      setLoading(false);
+    const checkProviderStatus = async () => {
+      if (userProfile && userProfile.type === 'provider') {
+        // Check if provider has a provider profile
+        const { data, error } = await supabase
+          .from('providers')
+          .select('*')
+          .eq('user_id', user?.id)
+          .single();
+        
+        if (error && error.code === 'PGRST116') {
+          // No provider profile found - needs onboarding
+          setNeedsOnboarding(true);
+          setLoading(false);
+        } else if (data) {
+          // Provider profile exists
+          setProvider(data);
+          setLoading(false);
+        } else {
+          console.error('Error fetching provider:', error);
+          setLoading(false);
+        }
+      }
+    };
+
+    if (userProfile) {
+      checkProviderStatus();
     }
-  }, [userProfile]);
+  }, [userProfile, user]);
+
+  const handleOnboardingComplete = async () => {
+    // Refetch provider data after onboarding
+    const { data } = await supabase
+      .from('providers')
+      .select('*')
+      .eq('user_id', user?.id)
+      .single();
+    
+    if (data) {
+      setProvider(data);
+      setNeedsOnboarding(false);
+    }
+  };
 
   const getProfileCompleteness = () => {
     if (!provider) return 0;
@@ -58,6 +99,11 @@ export const ProviderDashboard: React.FC = () => {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
       </div>
     );
+  }
+
+  // Show onboarding if provider needs to complete their profile
+  if (needsOnboarding) {
+    return <ProviderOnboarding onComplete={handleOnboardingComplete} />;
   }
 
   return (
@@ -187,5 +233,13 @@ export const ProviderDashboard: React.FC = () => {
         </Tabs>
       </div>
     </div>
+  );
+};
+
+export const ProviderDashboard: React.FC = () => {
+  return (
+    <DashboardWrapper requiredUserType="provider">
+      <ProviderDashboardContent />
+    </DashboardWrapper>
   );
 };

@@ -14,6 +14,7 @@ interface AuthContextType {
   signInWithGoogle: (userType?: 'user' | 'provider') => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: any) => Promise<void>;
+  createUserProfile: (user: any, userType: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,52 +38,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handle OAuth callback and get initial session
+    // Get initial session
     const initializeAuth = async () => {
       try {
+        const { data, error } = await supabase.auth.getSession();
         
-        // Check if we have OAuth callback tokens in URL hash
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-
-        if (accessToken && refreshToken) {
-          console.log('Processing OAuth callback tokens...');
-          
-          // Set the session using the tokens from URL
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
-
-          if (error) {
-            console.error('Error setting session from OAuth tokens:', error);
-            setLoading(false);
-          } else {
-            console.log('Session set successfully from OAuth tokens:', data.user?.email);
-            // Don't set loading to false here - let onAuthStateChange handle it
-          }
-
-          // Clean up URL hash after processing but preserve search params
-          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        if (error) {
+          console.error('Auth error:', error);
+          setLoading(false);
+          return;
+        }
+        
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        
+        if (data.session?.user) {
+          await fetchUserProfile(data.session.user.id);
         } else {
-          // No OAuth tokens, just get existing session
-          const { data, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.error('Auth error:', error);
-            setLoading(false);
-            return;
-          }
-          
-          setSession(data.session);
-          setUser(data.session?.user ?? null);
-          
-          if (data.session?.user) {
-            await fetchUserProfile(data.session.user.id);
-          } else {
-            setLoading(false);
-          }
+          setLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -97,80 +70,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
-      console.log('Current pathname:', window.location.pathname);
-      console.log('Session exists:', !!session);
       
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        console.log('User signed in, fetching profile...');
-        
-        // Handle OAuth callback - create user profile first, then redirect
-        if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
-          const urlParams = new URLSearchParams(window.location.search);
-          const userTypeFromUrl = urlParams.get('user_type');
-          
-          // If this is an OAuth callback (has user_type param), create user profile
-          if (userTypeFromUrl) {
-            console.log('OAuth callback detected, creating user profile...');
-            
-            try {
-              // Create user profile for OAuth user
-              await createOAuthUserProfile(session.user, userTypeFromUrl);
-              
-              const userType = userTypeFromUrl || 'user';
-              const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
-              console.log(`OAuth profile creation successful! Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
-              
-              // Redirect after creating profile
-              console.log('About to redirect to:', redirectPath);
-              
-              // Use setTimeout to ensure redirect happens after current execution
-              setTimeout(() => {
-                console.log('Executing redirect now to:', redirectPath);
-                window.location.href = redirectPath;
-              }, 100);
-              return;
-            } catch (error) {
-              console.error('OAuth profile creation failed:', error);
-              
-              // Even if profile creation fails, still redirect (user might already exist)
-              const userType = userTypeFromUrl || 'user';
-              const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
-              console.log(`Profile creation failed but redirecting anyway to ${redirectPath}`);
-              
-              setTimeout(() => {
-                console.log('Executing fallback redirect now to:', redirectPath);
-                window.location.href = redirectPath;
-              }, 100);
-              return;
-            }
-          }
-        }
-        
-        // Fetch profile for other cases (not during OAuth redirect)
         await fetchUserProfile(session.user.id);
-        
-        // After profile fetch, redirect for regular sign-in
-        if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
-          const urlParams = new URLSearchParams(window.location.search);
-          const userTypeFromUrl = urlParams.get('user_type');
-          
-          // Only redirect if this is NOT an OAuth callback (no user_type param)
-          if (!userTypeFromUrl) {
-            console.log('Regular sign-in redirect to dashboard...');
-            const userType = session.user.user_metadata?.user_type || 'user';
-            const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
-            console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
-            
-            setTimeout(() => {
-              window.location.href = redirectPath;
-            }, 500); // Small delay to ensure profile is loaded
-          }
-        }
       } else {
-        console.log('No user session, setting loading to false');
         setUserProfile(null);
         setLoading(false);
       }
@@ -179,8 +85,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const createOAuthUserProfile = async (user: any, userType: string) => {
-    console.log('Creating OAuth user profile:', { userId: user.id, userType, email: user.email });
+  const createUserProfile = async (user: any, userType: string) => {
+    console.log('Creating user profile:', { userId: user.id, userType, email: user.email });
     
     const userData = {
       id: user.id,
@@ -189,7 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       type: userType
     };
     
-    console.log('Inserting OAuth user data:', userData);
+    console.log('Inserting user data:', userData);
     
     const { error: profileError } = await supabase
       .from('users')
@@ -198,19 +104,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (profileError) {
       // If user already exists, try updating
       if (profileError.code === '23505') {
-        console.log('OAuth user exists, updating instead...');
+        console.log('User exists, updating instead...');
         const { error: updateError } = await supabase
           .from('users')
           .update({ name: userData.name, type: userType })
           .eq('id', user.id);
         
         if (updateError) {
-          console.error('OAuth profile update error:', updateError);
+          console.error('Profile update error:', updateError);
           throw updateError;
         }
-        console.log('OAuth user profile updated successfully');
+        console.log('User profile updated successfully');
       } else {
-        console.error('OAuth profile creation error details:', {
+        console.error('Profile creation error details:', {
           code: profileError.code,
           message: profileError.message,
           details: profileError.details,
@@ -219,13 +125,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw profileError;
       }
     } else {
-      console.log('OAuth user profile created successfully (new user)');
+      console.log('User profile created successfully (new user)');
     }
-    
-    console.log('OAuth user profile created successfully');
-    
-    // For providers, DON'T create provider profile yet - missing required fields
-    // The provider dashboard will show an onboarding form instead
   };
 
   const fetchUserProfile = async (userId: string) => {
@@ -440,13 +341,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       
+      // Store user type preference for later use
+      sessionStorage.setItem('oauth_user_type', userType);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/evt-mngment/?user_type=${userType}`,
-          queryParams: {
-            user_type: userType
-          }
+          redirectTo: `${window.location.origin}/evt-mngment/`
         }
       });
 
@@ -521,6 +422,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signInWithGoogle,
     signOut,
     updateProfile,
+    createUserProfile,
   };
 
   return (
