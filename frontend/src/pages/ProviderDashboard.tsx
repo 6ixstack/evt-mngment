@@ -13,11 +13,12 @@ import {
   CreditCardIcon,
   ChartBarIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  ArrowLeftOnRectangleIcon
 } from '@heroicons/react/24/outline';
 
 export const ProviderDashboard: React.FC = () => {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [provider, setProvider] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +74,15 @@ export const ProviderDashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-4">
+              {/* Sign Out Button */}
+              <Button
+                variant="outline"
+                onClick={signOut}
+              >
+                <ArrowLeftOnRectangleIcon className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+              
               {/* Profile Completeness */}
               <Card className="p-4">
                 <div className="flex items-center gap-3">

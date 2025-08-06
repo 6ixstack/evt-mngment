@@ -10,7 +10,8 @@ import {
   SparklesIcon, 
   ShareIcon, 
   BookmarkIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  ArrowLeftOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -43,7 +44,7 @@ interface Event {
 }
 
 export const Dashboard: React.FC = () => {
-  const { user, session } = useAuth();
+  const { user, session, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState<'select' | 'describe' | 'generating' | 'plan'>('select');
   const [selectedEventType, setSelectedEventType] = useState<string>('Wedding');
   const [eventDescription, setEventDescription] = useState<string>('');
@@ -139,11 +140,21 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.user_metadata?.name || 'there'}! 
-          </h1>
-          <p className="text-gray-600">Let's plan your perfect event</p>
+        <div className="flex justify-between items-center mb-8">
+          <div className="text-center flex-1">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome back, {user?.user_metadata?.name || 'there'}! 
+            </h1>
+            <p className="text-gray-600">Let's plan your perfect event</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={signOut}
+            className="ml-4"
+          >
+            <ArrowLeftOnRectangleIcon className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
 
         <AnimatePresence mode="wait">
