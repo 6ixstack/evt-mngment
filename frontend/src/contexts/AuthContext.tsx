@@ -121,14 +121,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               
               const userType = userTypeFromUrl || 'user';
               const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
-              console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
+              console.log(`OAuth profile creation successful! Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
               
               // Redirect after creating profile
+              console.log('About to redirect to:', redirectPath);
               window.location.href = redirectPath;
               return;
             } catch (error) {
               console.error('OAuth profile creation failed:', error);
-              toast.error('Failed to complete signup. Please try again.');
+              
+              // Even if profile creation fails, still redirect (user might already exist)
+              const userType = userTypeFromUrl || 'user';
+              const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+              console.log(`Profile creation failed but redirecting anyway to ${redirectPath}`);
+              window.location.href = redirectPath;
+              return;
             }
           }
         }
@@ -192,10 +199,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.error('OAuth profile update error:', updateError);
           throw updateError;
         }
+        console.log('OAuth user profile updated successfully');
       } else {
-        console.error('OAuth profile creation error:', profileError);
+        console.error('OAuth profile creation error details:', {
+          code: profileError.code,
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint
+        });
         throw profileError;
       }
+    } else {
+      console.log('OAuth user profile created successfully (new user)');
     }
     
     console.log('OAuth user profile created successfully');
