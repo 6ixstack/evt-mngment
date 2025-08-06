@@ -125,7 +125,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               
               // Redirect after creating profile
               console.log('About to redirect to:', redirectPath);
-              window.location.href = redirectPath;
+              
+              // Use setTimeout to ensure redirect happens after current execution
+              setTimeout(() => {
+                console.log('Executing redirect now to:', redirectPath);
+                window.location.href = redirectPath;
+              }, 100);
               return;
             } catch (error) {
               console.error('OAuth profile creation failed:', error);
@@ -134,7 +139,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               const userType = userTypeFromUrl || 'user';
               const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
               console.log(`Profile creation failed but redirecting anyway to ${redirectPath}`);
-              window.location.href = redirectPath;
+              
+              setTimeout(() => {
+                console.log('Executing fallback redirect now to:', redirectPath);
+                window.location.href = redirectPath;
+              }, 100);
               return;
             }
           }
