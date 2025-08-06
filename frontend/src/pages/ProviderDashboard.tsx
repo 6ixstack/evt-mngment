@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { DashboardWrapper } from '@/components/DashboardWrapper';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -237,9 +236,5 @@ const ProviderDashboardContent: React.FC = () => {
 };
 
 export const ProviderDashboard: React.FC = () => {
-  return (
-    <DashboardWrapper requiredUserType="provider">
-      <ProviderDashboardContent />
-    </DashboardWrapper>
-  );
+  return <ProviderDashboardContent />;
 };

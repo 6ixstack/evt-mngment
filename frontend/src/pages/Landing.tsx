@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { HowItWorks } from '@/components/HowItWorks';
@@ -9,7 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 export const Landing: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, userProfile, loading } = useAuth();
+  const navigate = useNavigate();
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
     mode: 'signin' | 'signup' | 'provider-signup';
@@ -17,67 +19,45 @@ export const Landing: React.FC = () => {
     isOpen: false,
     mode: 'signin'
   });
-  
-  const [, setSelectedEventType] = useState<string>('Wedding');
-  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Handle OAuth callback and redirect signed-in users
+  // Handle OAuth callback
   useEffect(() => {
-    const handleRedirect = async () => {
-      if (loading || isRedirecting) return;
+    const handleOAuthCallback = async () => {
+      // Check if this is an OAuth callback
+      const oauthUserType = sessionStorage.getItem('oauth_user_type');
       
-      if (user) {
-        setIsRedirecting(true);
+      if (user && oauthUserType) {
+        console.log('OAuth callback detected, setting user type:', oauthUserType);
         
-        // Check if this is an OAuth callback
-        const oauthUserType = sessionStorage.getItem('oauth_user_type');
+        // Call RPC function to set user type
+        const { error } = await supabase.rpc('set_user_type', {
+          user_id: user.id,
+          new_user_type: oauthUserType
+        });
         
-        if (oauthUserType) {
-          // OAuth user - create profile if needed
-          console.log('OAuth callback detected, user type:', oauthUserType);
-          
-          // Try to create user profile
-          const { error } = await supabase
-            .from('users')
-            .insert({
-              id: user.id,
-              name: user.user_metadata?.full_name || user.email,
-              email: user.email!,
-              type: oauthUserType
-            });
-          
-          // Ignore duplicate errors
-          if (error && error.code !== '23505') {
-            console.error('Profile creation error:', error);
-          }
-          
-          sessionStorage.removeItem('oauth_user_type');
-          
-          // Redirect based on OAuth user type
-          if (oauthUserType === 'provider') {
-            window.location.href = '/evt-mngment/provider-dashboard';
-          } else {
-            window.location.href = '/evt-mngment/dashboard';
-          }
-        } else {
-          // Regular signed-in user - check their profile
-          const { data: profile } = await supabase
-            .from('users')
-            .select('type')
-            .eq('id', user.id)
-            .single();
-          
-          if (profile?.type === 'provider') {
-            window.location.href = '/evt-mngment/provider-dashboard';
-          } else {
-            window.location.href = '/evt-mngment/dashboard';
-          }
+        if (error) {
+          console.error('Error setting user type:', error);
         }
+        
+        // Clear stored type
+        sessionStorage.removeItem('oauth_user_type');
       }
     };
-    
-    handleRedirect();
-  }, [user, loading, isRedirecting]);
+
+    if (user && !loading) {
+      handleOAuthCallback();
+    }
+  }, [user, loading]);
+
+  // Redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (!loading && user && userProfile) {
+      const redirectPath = userProfile.type === 'provider' 
+        ? '/provider-dashboard' 
+        : '/dashboard';
+      navigate(redirectPath);
+    }
+  }, [user, userProfile, loading, navigate]);
 
   const handleAuthModalOpen = (mode: 'signin' | 'signup' | 'provider-signup') => {
     setAuthModal({ isOpen: true, mode });
@@ -88,20 +68,9 @@ export const Landing: React.FC = () => {
   };
 
   const handleEventSelect = (eventType: string) => {
-    setSelectedEventType(eventType);
+    // Handle event selection
+    console.log('Event selected:', eventType);
   };
-
-  // Show loading screen while redirecting
-  if (isRedirecting) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white">

@@ -14,7 +14,6 @@ interface AuthContextType {
   signInWithGoogle: (userType?: 'user' | 'provider') => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: any) => Promise<void>;
-  createUserProfile: (user: any, userType: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,103 +36,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Get initial session
-    const initializeAuth = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Auth error:', error);
-          setLoading(false);
-          return;
-        }
-        
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
-        
-        if (data.session?.user) {
-          await fetchUserProfile(data.session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email);
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
-        // Clear OAuth user type on sign out or auth failure
-        sessionStorage.removeItem('oauth_user_type');
-        setUserProfile(null);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const createUserProfile = async (user: any, userType: string) => {
-    console.log('Creating user profile:', { userId: user.id, userType, email: user.email });
-    
-    const userData = {
-      id: user.id,
-      name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
-      email: user.email,
-      type: userType
-    };
-    
-    console.log('Inserting user data:', userData);
-    
-    const { error: profileError } = await supabase
-      .from('users')
-      .insert(userData);
-
-    if (profileError) {
-      // If user already exists, try updating
-      if (profileError.code === '23505') {
-        console.log('User exists, updating instead...');
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ name: userData.name, type: userType })
-          .eq('id', user.id);
-        
-        if (updateError) {
-          console.error('Profile update error:', updateError);
-          throw updateError;
-        }
-        console.log('User profile updated successfully');
-      } else {
-        console.error('Profile creation error details:', {
-          code: profileError.code,
-          message: profileError.message,
-          details: profileError.details,
-          hint: profileError.hint
-        });
-        throw profileError;
-      }
-    } else {
-      console.log('User profile created successfully (new user)');
-    }
-  };
-
+  // Fetch user profile
   const fetchUserProfile = async (userId: string) => {
-    console.log('Fetching user profile for:', userId);
-    
     try {
       const { data, error } = await supabase
         .from('users')
@@ -141,35 +45,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .eq('id', userId)
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No profile found - this is ok for new users
-          console.log('No user profile found yet');
-          setUserProfile(null);
-        } else {
-          console.error('Profile fetch error:', error);
-        }
-      } else {
-        console.log('Profile fetched:', data);
-        setUserProfile(data);
+      if (error && error.code !== 'PGRST116') {
+        console.error('Profile fetch error:', error);
       }
-    } catch (error: any) {
+      
+      setUserProfile(data);
+    } catch (error) {
       console.error('Profile fetch error:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
+      } else {
+        setUserProfile(null);
+      }
+      
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const signUp = async (email: string, password: string, userData: any) => {
-    console.log('Starting signup:', { email, userData });
-    
     try {
-      setLoading(true);
-      toast.loading('Creating your account...', { id: 'signup' });
-      
-      // Step 1: Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Sign up with user type in metadata
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -180,171 +99,87 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       });
 
-      if (authError) {
-        console.error('Auth signup error:', authError);
-        throw authError;
-      }
+      if (error) throw error;
 
-      if (!authData.user) {
-        throw new Error('User creation failed - no user returned');
-      }
-
-      console.log('Auth user created:', authData.user.id);
-
-      // Step 2: Create user profile
-      const userProfileData = {
-        id: authData.user.id,
-        name: userData.name,
-        email: authData.user.email || email,
-        type: userData.type || 'user'
-      };
-      
-      console.log('Creating user profile:', userProfileData);
-      
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert(userProfileData);
-
-      if (profileError && profileError.code !== '23505') {
-        // Ignore duplicate key errors, throw others
-        console.error('Profile creation error:', profileError);
-        throw new Error(`Profile creation failed: ${profileError.message}`);
-      }
-
-      // Step 3: If provider, create provider profile
-      if (userData.type === 'provider' && userData.business_name) {
-        console.log('Creating provider profile...');
-        
-        const providerData = {
-          user_id: authData.user.id,
-          business_name: userData.business_name,
-          provider_type: userData.provider_type,
-          phone: userData.phone,
-          location_city: userData.location_city,
-          location_province: userData.location_province,
-          description: userData.description,
-          tags: userData.tags || []
-        };
-        
+      // If provider, create provider profile
+      if (userData.type === 'provider' && data.user) {
         const { error: providerError } = await supabase
           .from('providers')
-          .insert(providerData);
+          .insert({
+            user_id: data.user.id,
+            business_name: userData.business_name,
+            provider_type: userData.provider_type,
+            phone: userData.phone,
+            location_city: userData.location_city,
+            location_province: userData.location_province,
+            description: userData.description,
+            tags: userData.tags || []
+          });
 
-        if (providerError && providerError.code !== '23505') {
+        if (providerError) {
           console.error('Provider profile error:', providerError);
-          throw new Error(`Provider profile creation failed: ${providerError.message}`);
         }
       }
 
-      toast.success('Account created successfully!', { id: 'signup' });
-      
-      // Redirect based on user type
-      setTimeout(() => {
-        if (userData.type === 'provider') {
-          window.location.href = '/evt-mngment/provider-dashboard';
-        } else {
-          window.location.href = '/evt-mngment/dashboard';
-        }
-      }, 1000);
-      
+      toast.success('Account created! Please check your email for verification.');
     } catch (error: any) {
       console.error('Signup error:', error);
-      toast.error(error.message || 'Failed to create account', { id: 'signup' });
+      toast.error(error.message || 'Failed to create account');
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        throw error;
-      }
-
-      if (data.user) {
-        toast.success('Signed in successfully!');
-        
-        // Fetch the user profile to determine where to redirect
-        const { data: profile } = await supabase
-          .from('users')
-          .select('type')
-          .eq('id', data.user.id)
-          .single();
-        
-        // Redirect based on user type
-        setTimeout(() => {
-          if (profile?.type === 'provider') {
-            window.location.href = '/evt-mngment/provider-dashboard';
-          } else {
-            window.location.href = '/evt-mngment/dashboard';
-          }
-        }, 1000);
-      }
+      if (error) throw error;
+      toast.success('Welcome back!');
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast.error(error.message || 'Failed to sign in');
-      setLoading(false);
       throw error;
     }
   };
 
   const signInWithGoogle = async (userType: 'user' | 'provider' = 'user') => {
     try {
-      setLoading(true);
-      
-      // Store user type preference for OAuth callback
+      // Store user type for OAuth callback
       sessionStorage.setItem('oauth_user_type', userType);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/evt-mngment/`,
-          queryParams: {
-            prompt: 'select_account'
-          }
+          redirectTo: `${window.location.origin}/evt-mngment/`
         }
       });
 
-      if (error) {
-        sessionStorage.removeItem('oauth_user_type');
-        throw error;
-      }
+      if (error) throw error;
     } catch (error: any) {
       console.error('Google sign in error:', error);
       sessionStorage.removeItem('oauth_user_type');
       toast.error(error.message || 'Failed to sign in with Google');
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
-      setLoading(true);
       const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
-      if (error) {
-        throw error;
-      }
-
       setUser(null);
       setSession(null);
       setUserProfile(null);
-      toast.success('Signed out successfully!');
+      sessionStorage.removeItem('oauth_user_type');
+      toast.success('Signed out successfully');
     } catch (error: any) {
       console.error('Sign out error:', error);
       toast.error(error.message || 'Failed to sign out');
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -352,15 +187,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (!user) throw new Error('No user logged in');
 
-      setLoading(true);
       const { error } = await supabase
         .from('users')
         .update(updates)
         .eq('id', user.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       await fetchUserProfile(user.id);
       toast.success('Profile updated successfully!');
@@ -368,8 +200,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Update profile error:', error);
       toast.error(error.message || 'Failed to update profile');
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -383,7 +213,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signInWithGoogle,
     signOut,
     updateProfile,
-    createUserProfile,
   };
 
   return (

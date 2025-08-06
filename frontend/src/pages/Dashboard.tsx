@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { DashboardWrapper } from '@/components/DashboardWrapper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -328,9 +327,5 @@ const DashboardContent: React.FC = () => {
 };
 
 export const Dashboard: React.FC = () => {
-  return (
-    <DashboardWrapper requiredUserType="user">
-      <DashboardContent />
-    </DashboardWrapper>
-  );
+  return <DashboardContent />;
 };

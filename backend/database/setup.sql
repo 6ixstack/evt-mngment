@@ -250,9 +250,97 @@ GRANT ALL ON provider_views TO anon, authenticated;
 -- CREATE POLICY "Anyone can view provider images" ON storage.objects
 --     FOR SELECT USING (bucket_id = 'provider-images');
 
+-- 24. Create user management functions
+CREATE OR REPLACE FUNCTION create_user_profile(
+    user_id UUID,
+    user_email TEXT,
+    user_name TEXT,
+    user_type user_type DEFAULT 'user'
+) RETURNS void AS $$
+BEGIN
+    INSERT INTO users (id, email, name, type)
+    VALUES (user_id, user_email, user_name, user_type)
+    ON CONFLICT (id) DO UPDATE
+    SET 
+        name = EXCLUDED.name,
+        type = EXCLUDED.type,
+        updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 25. Function to handle auth user creation
+CREATE OR REPLACE FUNCTION handle_auth_user_created() RETURNS trigger AS $$
+DECLARE
+    user_type_value user_type;
+    user_name_value TEXT;
+BEGIN
+    -- Extract user type from metadata or default to 'user'
+    user_type_value := COALESCE(
+        (NEW.raw_user_meta_data->>'user_type')::user_type,
+        'user'::user_type
+    );
+    
+    -- Extract name from metadata
+    user_name_value := COALESCE(
+        NEW.raw_user_meta_data->>'full_name',
+        NEW.raw_user_meta_data->>'name',
+        split_part(NEW.email, '@', 1)
+    );
+    
+    -- Create user profile
+    PERFORM create_user_profile(
+        NEW.id,
+        NEW.email,
+        user_name_value,
+        user_type_value
+    );
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 26. Create trigger for automatic user creation
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION handle_auth_user_created();
+
+-- 27. RPC function for updating user type (OAuth flows)
+CREATE OR REPLACE FUNCTION set_user_type(
+    user_id UUID,
+    new_user_type user_type
+) RETURNS void AS $$
+BEGIN
+    -- Ensure the user can only update their own type
+    IF auth.uid() != user_id THEN
+        RAISE EXCEPTION 'Unauthorized';
+    END IF;
+    
+    -- Update or insert user record
+    INSERT INTO users (id, email, name, type)
+    SELECT 
+        user_id,
+        auth.email(),
+        COALESCE(
+            auth.jwt()->>'user_metadata'->>'full_name',
+            auth.jwt()->>'user_metadata'->>'name',
+            split_part(auth.email(), '@', 1)
+        ),
+        new_user_type
+    ON CONFLICT (id) DO UPDATE
+    SET type = new_user_type, updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 28. Grant function permissions
+GRANT EXECUTE ON FUNCTION create_user_profile TO service_role;
+GRANT EXECUTE ON FUNCTION handle_auth_user_created TO service_role;
+GRANT EXECUTE ON FUNCTION set_user_type TO authenticated;
+
 -- ================================
 -- SETUP COMPLETE!
 -- ================================
--- Note: The auth trigger is NOT included because the frontend
--- handles user profile creation directly during sign-up.
--- This gives us better control and error handling.
+-- The database now includes:
+-- 1. Automatic user creation via trigger
+-- 2. RPC function for OAuth user type updates
+-- 3. All tables, policies, and permissions
