@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userData.type === 'provider' && data.user) {
         const { error: providerError } = await supabase
           .from('providers')
-          .insert({
+          .upsert({
             user_id: data.user.id,
             business_name: userData.business_name,
             provider_type: userData.provider_type,
@@ -114,6 +114,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             location_province: userData.location_province,
             description: userData.description,
             tags: userData.tags || []
+          }, {
+            onConflict: 'user_id'
           });
 
         if (providerError) {

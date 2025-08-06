@@ -37,19 +37,21 @@ export const Landing: React.FC = () => {
           .maybeSingle();
         
         if (!existingProfile) {
-          // Only create if doesn't exist
-          console.log('Creating user profile...');
+          // Use upsert to avoid duplicate key errors
+          console.log('Creating/updating user profile...');
           const { error } = await supabase
             .from('users')
-            .insert({
+            .upsert({
               id: user.id,
               name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
               email: user.email || '',
               type: oauthUserType as 'user' | 'provider'
+            }, {
+              onConflict: 'id'
             });
           
           if (error) {
-            console.error('Error creating user profile:', error);
+            console.error('Error upserting user profile:', error);
           }
         }
         
