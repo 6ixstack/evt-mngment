@@ -1,13 +1,74 @@
-# 🚀 EventCraft Automated Deployment Guide
+# 🚀 EventCraft Deployment Guide
 
-This guide covers automated deployment of EventCraft platform using GitHub Actions and Render.com.
+This guide ensures you can deploy EventCraft with a single command and avoid database sync issues.
+
+## Quick Deployment (Recommended)
+
+Run the automated deployment script:
+
+```bash
+./deploy.sh
+```
+
+This script will:
+1. ✅ Check dependencies
+2. ✅ Install all packages  
+3. ✅ Build frontend and backend
+4. ✅ Update database schema automatically
+5. ✅ Commit and push changes
+6. ✅ Trigger deployments
+
+## Manual Database Migration
+
+If you need to update the database separately:
+
+```bash
+cd backend
+npm run migrate
+```
+
+Or manually run the SQL in your Supabase SQL Editor:
+1. Copy contents of `backend/database/schema.sql`
+2. Paste and execute in Supabase SQL Editor
+
+## Environment Setup
+
+Make sure you have these files:
+
+### `backend/.env`
+```env
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+AZURE_OPENAI_API_KEY=your_azure_key
+AZURE_OPENAI_ENDPOINT=your_azure_endpoint
+OPENAI_API_KEY=your_openai_key (fallback)
+STRIPE_SECRET_KEY=your_stripe_secret
+STRIPE_WEBHOOK_SECRET=your_webhook_secret
+```
+
+### `frontend/.env`
+```env
+VITE_SUPABASE_URL=your_supabase_url  
+VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_BACKEND_URL=your_backend_url
+```
+
+## Testing Provider Signup
+
+After deployment, test that provider signups work correctly:
+
+1. Go to your app
+2. Sign up as a provider
+3. Check your Supabase database
+4. Verify the user has `type = 'provider'` (not 'user')
 
 ## Prerequisites
 - GitHub repository with EventCraft code
 - Supabase project set up (Phase 1-3 from main deployment guide)
 - Environment variables ready
 
-## Quick Deployment Steps
+## Manual Deployment Steps (Alternative)
 
 ### 1. Update Frontend Environment
 Edit `/frontend/.env.production` with your actual values:
