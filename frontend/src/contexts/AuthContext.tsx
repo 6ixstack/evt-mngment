@@ -132,15 +132,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const fetchUserProfile = async (userId: string) => {
-    console.log('=== DIAGNOSTIC: Starting profile fetch ===');
-    console.log('User ID:', userId);
-    console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-    console.log('Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing');
-    console.log('Environment:', import.meta.env.MODE);
+    console.log('Fetching user profile for:', userId);
     
     try {
-      // Fetch user profile directly (no unnecessary connectivity test)
-      console.log('Fetching user profile...');
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -148,43 +142,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .single();
 
       if (error) {
-        console.error('DIAGNOSTIC: Profile fetch error:', error);
-        console.log('Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        
         if (error.code === 'PGRST116') {
-          console.log('DIAGNOSTIC: User record not found in users table');
+          // No profile found - this is ok for new users
+          console.log('No user profile found yet');
+          setUserProfile(null);
+        } else {
+          console.error('Profile fetch error:', error);
         }
       } else {
-        console.log('DIAGNOSTIC: Profile fetch successful:', data);
+        console.log('Profile fetched:', data);
         setUserProfile(data);
       }
     } catch (error: any) {
-      console.error('DIAGNOSTIC: Profile fetch error:', error);
-      console.log('Error message:', error.message);
+      console.error('Profile fetch error:', error);
     } finally {
-      console.log('=== DIAGNOSTIC: Profile fetch completed ===');
       setLoading(false);
     }
   };
 
 
   const signUp = async (email: string, password: string, userData: any) => {
-    console.log('=== SIGNUP DEBUG: Starting signup process ===');
-    console.log('Email:', email);
-    console.log('User data:', userData);
+    console.log('Starting signup:', { email, userData });
     
     try {
       setLoading(true);
-      
-      // Add toast notification for debugging
       toast.loading('Creating your account...', { id: 'signup' });
       
-      // Sign up with Supabase Auth
+      // Step 1: Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -197,69 +181,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (authError) {
+        console.error('Auth signup error:', authError);
         throw authError;
       }
 
       if (!authData.user) {
-        throw new Error('User creation failed');
+        throw new Error('User creation failed - no user returned');
       }
 
-      // Create user profile directly (no trigger dependency)
-      console.log('Creating user profile with type:', userData.type);
-      toast.loading('Setting up your profile...', { id: 'signup' });
-      
-      const userInsertData = {
+      console.log('Auth user created:', authData.user.id);
+
+      // Step 2: Create user profile
+      const userProfileData = {
         id: authData.user.id,
         name: userData.name,
         email: authData.user.email || email,
         type: userData.type || 'user'
       };
-      console.log('Inserting user data:', userInsertData);
+      
+      console.log('Creating user profile:', userProfileData);
       
       const { error: profileError } = await supabase
         .from('users')
-        .insert(userInsertData);
+        .insert(userProfileData);
 
-      if (profileError) {
-        console.error('DETAILED PROFILE ERROR:', {
-          code: profileError.code,
-          message: profileError.message,
-          details: profileError.details,
-          hint: profileError.hint
-        });
-        
-        // If user already exists (from previous attempt), try updating instead
-        if (profileError.code === '23505') {
-          console.log('User exists, updating instead...');
-          toast.loading('Updating your profile...', { id: 'signup' });
-          
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({
-              name: userData.name,
-              type: userData.type || 'user'
-            })
-            .eq('id', authData.user.id);
-          
-          if (updateError) {
-            console.error('Profile update error:', updateError);
-            toast.error('Failed to update profile: ' + updateError.message, { id: 'signup' });
-            throw updateError;
-          }
-        } else {
-          console.error('Profile creation error:', profileError);
-          toast.error('Failed to create profile: ' + profileError.message, { id: 'signup' });
-          throw profileError;
-        }
+      if (profileError && profileError.code !== '23505') {
+        // Ignore duplicate key errors, throw others
+        console.error('Profile creation error:', profileError);
+        throw new Error(`Profile creation failed: ${profileError.message}`);
       }
-      
-      console.log('User profile created successfully');
-      toast.success('Profile created!', { id: 'signup' });
 
-      // If provider, create provider profile
-      if (userData.type === 'provider') {
-        console.log('Creating provider profile...', userData);
-        toast.loading('Setting up provider account...', { id: 'signup' });
+      // Step 3: If provider, create provider profile
+      if (userData.type === 'provider' && userData.business_name) {
+        console.log('Creating provider profile...');
         
         const providerData = {
           user_id: authData.user.id,
@@ -268,48 +222,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           phone: userData.phone,
           location_city: userData.location_city,
           location_province: userData.location_province,
-          location_lat: null, // Will be set later via geocoding
-          location_lng: null, // Will be set later via geocoding
           description: userData.description,
           tags: userData.tags || []
         };
-        console.log('Inserting provider data:', providerData);
         
         const { error: providerError } = await supabase
           .from('providers')
           .insert(providerData);
 
-        if (providerError) {
-          console.error('DETAILED PROVIDER ERROR:', {
-            code: providerError.code,
-            message: providerError.message,
-            details: providerError.details,
-            hint: providerError.hint
-          });
-          toast.error('Failed to create provider profile: ' + providerError.message, { id: 'signup' });
-          throw providerError;
+        if (providerError && providerError.code !== '23505') {
+          console.error('Provider profile error:', providerError);
+          throw new Error(`Provider profile creation failed: ${providerError.message}`);
         }
-        
-        console.log('Provider profile created successfully');
       }
 
       toast.success('Account created successfully!', { id: 'signup' });
       
-      // For demo purposes, redirect to dashboard immediately
-      // In production, wait for email verification
-      console.log('Redirecting user after sign-up...', userData.type);
-      if (userData.type === 'user') {
-        window.location.href = '/evt-mngment/dashboard';
-      } else if (userData.type === 'provider') {
-        window.location.href = '/evt-mngment/provider-dashboard';
-      }
-    } catch (error: any) {
-      console.error('=== SIGNUP ERROR ===');
-      console.error('Error object:', error);
-      console.error('Error message:', error?.message);
-      console.error('Error code:', error?.code);
-      console.error('=== END SIGNUP ERROR ===');
+      // Redirect based on user type
+      setTimeout(() => {
+        if (userData.type === 'provider') {
+          window.location.href = '/evt-mngment/provider-dashboard';
+        } else {
+          window.location.href = '/evt-mngment/dashboard';
+        }
+      }, 1000);
       
+    } catch (error: any) {
+      console.error('Signup error:', error);
       toast.error(error.message || 'Failed to create account', { id: 'signup' });
       throw error;
     } finally {
@@ -320,7 +259,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -329,8 +268,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw error;
       }
 
-      toast.success('Signed in successfully!');
-      // Don't set loading to false here - let onAuthStateChange handle it
+      if (data.user) {
+        toast.success('Signed in successfully!');
+        
+        // Fetch the user profile to determine where to redirect
+        const { data: profile } = await supabase
+          .from('users')
+          .select('type')
+          .eq('id', data.user.id)
+          .single();
+        
+        // Redirect based on user type
+        setTimeout(() => {
+          if (profile?.type === 'provider') {
+            window.location.href = '/evt-mngment/provider-dashboard';
+          } else {
+            window.location.href = '/evt-mngment/dashboard';
+          }
+        }, 1000);
+      }
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast.error(error.message || 'Failed to sign in');
@@ -343,34 +299,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       
-      // Store user type preference for later use
+      // Store user type preference for OAuth callback
       sessionStorage.setItem('oauth_user_type', userType);
-      
-      // Set a timeout to clean up the stored user type if auth fails
-      const cleanupTimeout = setTimeout(() => {
-        sessionStorage.removeItem('oauth_user_type');
-        console.log('OAuth timeout - cleared stored user type');
-      }, 300000); // 5 minutes timeout
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/evt-mngment/`
+          redirectTo: `${window.location.origin}/evt-mngment/`,
+          queryParams: {
+            prompt: 'select_account'
+          }
         }
       });
 
       if (error) {
-        // Clear the cleanup timeout and remove stored type immediately
-        clearTimeout(cleanupTimeout);
         sessionStorage.removeItem('oauth_user_type');
         throw error;
       }
-
-      // The redirect will happen automatically
-      // Don't clear the timeout here - let it clean up naturally if needed
     } catch (error: any) {
       console.error('Google sign in error:', error);
-      sessionStorage.removeItem('oauth_user_type'); // Ensure cleanup on error
+      sessionStorage.removeItem('oauth_user_type');
       toast.error(error.message || 'Failed to sign in with Google');
       throw error;
     } finally {

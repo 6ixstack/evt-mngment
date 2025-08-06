@@ -6,9 +6,10 @@ import { TrustedVendors } from '@/components/TrustedVendors';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export const Landing: React.FC = () => {
-  const { user, userProfile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
     mode: 'signin' | 'signup' | 'provider-signup';
@@ -20,32 +21,63 @@ export const Landing: React.FC = () => {
   const [, setSelectedEventType] = useState<string>('Wedding');
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Redirect signed-in users to their dashboard
+  // Handle OAuth callback and redirect signed-in users
   useEffect(() => {
-    console.log('REDIRECT CHECK:', { 
-      loading, 
-      hasUser: !!user, 
-      hasProfile: !!userProfile,
-      userType: userProfile?.type,
-      isRedirecting 
-    });
-    
-    if (!loading && user && !isRedirecting) {
-      console.log('User signed in, determining redirect...');
-      setIsRedirecting(true);
+    const handleRedirect = async () => {
+      if (loading || isRedirecting) return;
       
-      // Wait a bit for profile to load, then redirect based on user type
-      setTimeout(() => {
-        const userType = userProfile?.type || 'user';
-        const redirectPath = userType === 'provider' 
-          ? '/evt-mngment/provider-dashboard' 
-          : '/evt-mngment/dashboard';
+      if (user) {
+        setIsRedirecting(true);
         
-        console.log(`Redirecting ${userType} to: ${redirectPath}`);
-        window.location.href = redirectPath;
-      }, 1000); // Longer delay to allow profile loading
-    }
-  }, [user, userProfile, loading, isRedirecting]);
+        // Check if this is an OAuth callback
+        const oauthUserType = sessionStorage.getItem('oauth_user_type');
+        
+        if (oauthUserType) {
+          // OAuth user - create profile if needed
+          console.log('OAuth callback detected, user type:', oauthUserType);
+          
+          // Try to create user profile
+          const { error } = await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              name: user.user_metadata?.full_name || user.email,
+              email: user.email!,
+              type: oauthUserType
+            });
+          
+          // Ignore duplicate errors
+          if (error && error.code !== '23505') {
+            console.error('Profile creation error:', error);
+          }
+          
+          sessionStorage.removeItem('oauth_user_type');
+          
+          // Redirect based on OAuth user type
+          if (oauthUserType === 'provider') {
+            window.location.href = '/evt-mngment/provider-dashboard';
+          } else {
+            window.location.href = '/evt-mngment/dashboard';
+          }
+        } else {
+          // Regular signed-in user - check their profile
+          const { data: profile } = await supabase
+            .from('users')
+            .select('type')
+            .eq('id', user.id)
+            .single();
+          
+          if (profile?.type === 'provider') {
+            window.location.href = '/evt-mngment/provider-dashboard';
+          } else {
+            window.location.href = '/evt-mngment/dashboard';
+          }
+        }
+      }
+    };
+    
+    handleRedirect();
+  }, [user, loading, isRedirecting]);
 
   const handleAuthModalOpen = (mode: 'signin' | 'signup' | 'provider-signup') => {
     setAuthModal({ isOpen: true, mode });
