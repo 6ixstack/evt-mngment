@@ -247,6 +247,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            user_type: userData.type || 'user',
+            full_name: userData.name
+          }
+        }
       });
 
       if (authError) {
@@ -257,19 +263,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('User creation failed');
       }
 
-      // Create user profile
+      // Update user profile (trigger already created it)
+      console.log('Updating user profile type to:', userData.type);
       const { error: profileError } = await supabase
         .from('users')
-        .insert({
-          id: authData.user.id,
+        .update({
           name: userData.name,
-          email: email,
           type: userData.type || 'user'
-        });
+        })
+        .eq('id', authData.user.id);
 
       if (profileError) {
+        console.error('Profile update error:', profileError);
         throw profileError;
       }
+      
+      console.log('User profile updated successfully');
 
       // If provider, create provider profile
       if (userData.type === 'provider') {

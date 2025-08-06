@@ -220,7 +220,7 @@ BEGIN
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     NEW.email,
-    'user'
+    COALESCE(NEW.raw_user_meta_data->>'user_type', 'user')::user_type
   );
   RETURN NEW;
 END;
