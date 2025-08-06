@@ -212,38 +212,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('Environment:', import.meta.env.MODE);
     
     try {
-      // First, test basic Supabase connectivity with timeout
-      console.log('Testing Supabase connectivity...');
-      
-      const connectivityPromise = supabase.from('users').select('count').limit(1);
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Connectivity test timeout')), 3000)
-      );
-      
-      const connectivityTest = await Promise.race([connectivityPromise, timeoutPromise]);
-      console.log('Connectivity test result:', connectivityTest);
-      
-      if (connectivityTest.error) {
-        console.error('DIAGNOSTIC: Supabase connectivity failed:', connectivityTest.error);
-        console.log('Error details:', {
-          message: connectivityTest.error.message,
-          code: connectivityTest.error.code,
-          details: connectivityTest.error.details,
-          hint: connectivityTest.error.hint
-        });
-        
-        // Check if it's a table doesn't exist error
-        if (connectivityTest.error.code === '42P01') {
-          console.error('DIAGNOSTIC: "users" table does not exist in database');
-        } else if (connectivityTest.error.code === '42501') {
-          console.error('DIAGNOSTIC: Permission denied - check RLS policies');
-        }
-        
-        setLoading(false);
-        return;
-      }
-      
-      console.log('Supabase connectivity OK, fetching user profile...');
+      // Fetch user profile directly (no unnecessary connectivity test)
+      console.log('Fetching user profile...');
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -267,17 +237,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUserProfile(data);
       }
     } catch (error: any) {
-      console.error('DIAGNOSTIC: Unexpected error:', error);
-      console.log('Error type:', typeof error);
+      console.error('DIAGNOSTIC: Profile fetch error:', error);
       console.log('Error message:', error.message);
-      
-      if (error.message === 'Connectivity test timeout') {
-        console.error('DIAGNOSTIC: Supabase connectivity timeout - possible issues:');
-        console.error('1. Supabase project is paused/inactive');
-        console.error('2. Network connectivity issues');
-        console.error('3. Invalid Supabase URL or credentials');
-        console.error('4. Firewall/proxy blocking connection');
-      }
     } finally {
       console.log('=== DIAGNOSTIC: Profile fetch completed ===');
       setLoading(false);
