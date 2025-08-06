@@ -27,47 +27,47 @@ export const Landing: React.FC = () => {
       const oauthUserType = sessionStorage.getItem('oauth_user_type');
       
       if (user && oauthUserType) {
-        console.log('OAuth callback detected, creating user profile:', oauthUserType);
+        console.log('OAuth callback detected, checking for existing profile:', oauthUserType);
         
-        // Create user profile directly
-        const { error } = await supabase
+        // First check if profile already exists
+        const { data: existingProfile } = await supabase
           .from('users')
-          .insert({
-            id: user.id,
-            name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-            email: user.email || '',
-            type: oauthUserType as 'user' | 'provider'
-          });
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
         
-        if (error && error.code !== '23505') {
-          // Ignore duplicate key errors
-          console.error('Error creating user profile:', error);
+        if (!existingProfile) {
+          // Only create if doesn't exist
+          console.log('Creating user profile...');
+          const { error } = await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+              email: user.email || '',
+              type: oauthUserType as 'user' | 'provider'
+            });
+          
+          if (error) {
+            console.error('Error creating user profile:', error);
+          }
         }
         
         // Clear stored type
         sessionStorage.removeItem('oauth_user_type');
         
-        // Refetch user profile
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-          
-        if (profile) {
-          // Navigate to appropriate dashboard
-          const redirectPath = profile.type === 'provider' 
-            ? '/provider-dashboard' 
-            : '/dashboard';
-          navigate(redirectPath);
-        }
+        // Navigate to appropriate dashboard
+        const redirectPath = (existingProfile?.type || oauthUserType) === 'provider' 
+          ? '/provider-dashboard' 
+          : '/dashboard';
+        navigate(redirectPath);
       }
     };
 
-    if (user && !loading) {
+    if (user && !loading && !userProfile) {
       handleOAuthCallback();
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, userProfile, navigate]);
 
   // Redirect authenticated users to their dashboard
   useEffect(() => {

@@ -43,13 +43,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to avoid PGRST116
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Profile fetch error:', error);
       }
       
-      setUserProfile(data);
+      setUserProfile(data); // data will be null if no profile found
     } catch (error) {
       console.error('Profile fetch error:', error);
     }
