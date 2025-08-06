@@ -91,7 +91,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       console.log('Form data:', data);
       console.log('Calling signUp with provider type');
       
-      await signUp(data.email, data.password, {
+      const providerData = {
         name: data.name,
         type: 'provider',
         business_name: data.business_name,
@@ -101,7 +101,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         location_province: data.location_province,
         description: data.description,
         tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
-      });
+      };
+      
+      console.log('Provider data object being passed to signUp:', providerData);
+      
+      await signUp(data.email, data.password, providerData);
       
       console.log('Provider signup successful, closing modal');
       onClose();
