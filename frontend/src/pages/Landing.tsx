@@ -39,19 +39,26 @@ export const Landing: React.FC = () => {
         if (!existingProfile) {
           // Use upsert to avoid duplicate key errors
           console.log('Creating/updating user profile...');
-          const { error } = await supabase
-            .from('users')
-            .upsert({
-              id: user.id,
-              name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-              email: user.email || '',
-              type: oauthUserType as 'user' | 'provider'
-            }, {
-              onConflict: 'id'
-            });
           
-          if (error) {
-            console.error('Error upserting user profile:', error);
+          try {
+            const { data: userData, error } = await supabase
+              .from('users')
+              .upsert({
+                id: user.id,
+                name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+                email: user.email || '',
+                type: oauthUserType as 'user' | 'provider'
+              }, {
+                onConflict: 'id'
+              });
+            
+            if (error) {
+              console.error('Error upserting user profile:', error);
+            } else {
+              console.log('User profile created/updated successfully:', userData);
+            }
+          } catch (error) {
+            console.error('User profile upsert failed:', error);
           }
         }
         
