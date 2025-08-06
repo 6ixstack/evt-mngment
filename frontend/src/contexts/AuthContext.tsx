@@ -103,23 +103,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // If provider, create provider profile
       if (userData.type === 'provider' && data.user) {
-        const { error: providerError } = await supabase
-          .from('providers')
-          .upsert({
-            user_id: data.user.id,
-            business_name: userData.business_name,
-            provider_type: userData.provider_type,
-            phone: userData.phone,
-            location_city: userData.location_city,
-            location_province: userData.location_province,
-            description: userData.description,
-            tags: userData.tags || []
-          }, {
-            onConflict: 'user_id'
-          });
+        console.log('Creating provider profile:', {
+          user_id: data.user.id,
+          business_name: userData.business_name,
+          provider_type: userData.provider_type,
+          phone: userData.phone,
+          location_city: userData.location_city,
+          location_province: userData.location_province,
+          description: userData.description,
+          tags: userData.tags || []
+        });
 
-        if (providerError) {
-          console.error('Provider profile error:', providerError);
+        try {
+          const { data: providerData, error: providerError } = await supabase
+            .from('providers')
+            .upsert({
+              user_id: data.user.id,
+              business_name: userData.business_name,
+              provider_type: userData.provider_type,
+              phone: userData.phone,
+              location_city: userData.location_city,
+              location_province: userData.location_province,
+              description: userData.description,
+              tags: userData.tags || []
+            }, {
+              onConflict: 'user_id'
+            });
+
+          if (providerError) {
+            console.error('Provider profile error:', providerError);
+            toast.error('Failed to create provider profile');
+          } else {
+            console.log('Provider profile created successfully:', providerData);
+          }
+        } catch (error) {
+          console.error('Provider profile creation failed:', error);
+          toast.error('Failed to create provider profile');
         }
       }
 
