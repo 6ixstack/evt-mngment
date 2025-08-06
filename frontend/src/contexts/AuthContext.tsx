@@ -243,6 +243,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       
+      // Add toast notification for debugging
+      toast.loading('Creating your account...', { id: 'signup' });
+      
       // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -265,19 +268,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Create user profile directly (no trigger dependency)
       console.log('Creating user profile with type:', userData.type);
+      toast.loading('Setting up your profile...', { id: 'signup' });
+      
+      const userInsertData = {
+        id: authData.user.id,
+        name: userData.name,
+        email: authData.user.email || email,
+        type: userData.type || 'user'
+      };
+      console.log('Inserting user data:', userInsertData);
+      
       const { error: profileError } = await supabase
         .from('users')
-        .insert({
-          id: authData.user.id,
-          name: userData.name,
-          email: authData.user.email || email,
-          type: userData.type || 'user'
-        });
+        .insert(userInsertData);
 
       if (profileError) {
+        console.error('DETAILED PROFILE ERROR:', {
+          code: profileError.code,
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint
+        });
+        
         // If user already exists (from previous attempt), try updating instead
         if (profileError.code === '23505') {
           console.log('User exists, updating instead...');
+          toast.loading('Updating your profile...', { id: 'signup' });
+          
           const { error: updateError } = await supabase
             .from('users')
             .update({
@@ -288,43 +305,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           if (updateError) {
             console.error('Profile update error:', updateError);
+            toast.error('Failed to update profile: ' + updateError.message, { id: 'signup' });
             throw updateError;
           }
         } else {
           console.error('Profile creation error:', profileError);
+          toast.error('Failed to create profile: ' + profileError.message, { id: 'signup' });
           throw profileError;
         }
       }
       
-      console.log('User profile updated successfully');
+      console.log('User profile created successfully');
+      toast.success('Profile created!', { id: 'signup' });
 
       // If provider, create provider profile
       if (userData.type === 'provider') {
         console.log('Creating provider profile...', userData);
+        toast.loading('Setting up provider account...', { id: 'signup' });
+        
+        const providerData = {
+          user_id: authData.user.id,
+          business_name: userData.business_name,
+          provider_type: userData.provider_type,
+          phone: userData.phone,
+          location_city: userData.location_city,
+          location_province: userData.location_province,
+          location_lat: null, // Will be set later via geocoding
+          location_lng: null, // Will be set later via geocoding
+          description: userData.description,
+          tags: userData.tags || []
+        };
+        console.log('Inserting provider data:', providerData);
+        
         const { error: providerError } = await supabase
           .from('providers')
-          .insert({
-            user_id: authData.user.id,
-            business_name: userData.business_name,
-            provider_type: userData.provider_type,
-            phone: userData.phone,
-            location_city: userData.location_city,
-            location_province: userData.location_province,
-            location_lat: null, // Will be set later via geocoding
-            location_lng: null, // Will be set later via geocoding
-            description: userData.description,
-            tags: userData.tags || []
-          });
+          .insert(providerData);
 
         if (providerError) {
-          console.error('Provider profile creation error:', providerError);
+          console.error('DETAILED PROVIDER ERROR:', {
+            code: providerError.code,
+            message: providerError.message,
+            details: providerError.details,
+            hint: providerError.hint
+          });
+          toast.error('Failed to create provider profile: ' + providerError.message, { id: 'signup' });
           throw providerError;
         }
         
         console.log('Provider profile created successfully');
       }
 
-      toast.success('Account created successfully! Please check your email to verify your account.');
+      toast.success('Account created successfully!', { id: 'signup' });
       
       // For demo purposes, redirect to dashboard immediately
       // In production, wait for email verification
@@ -335,8 +366,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         window.location.href = '/evt-mngment/provider-dashboard';
       }
     } catch (error: any) {
-      console.error('Sign up error:', error);
-      toast.error(error.message || 'Failed to create account');
+      console.error('=== SIGNUP ERROR ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error code:', error?.code);
+      console.error('=== END SIGNUP ERROR ===');
+      
+      toast.error(error.message || 'Failed to create account', { id: 'signup' });
       throw error;
     } finally {
       setLoading(false);
