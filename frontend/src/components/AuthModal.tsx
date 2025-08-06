@@ -66,19 +66,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSignUp = async (data: SignUpFormData) => {
     try {
+      console.log('=== USER SIGNUP MODAL DEBUG ===');
+      console.log('Form data:', data);
+      console.log('Calling signUp with user type');
+      
       await signUp(data.email, data.password, {
         name: data.name,
         type: 'user'
       });
+      
+      console.log('User signup successful, closing modal');
       onClose();
       signUpForm.reset();
     } catch (error) {
-      // Error handled by context
+      console.error('USER SIGNUP MODAL ERROR:', error);
+      // Don't swallow the error - let it bubble up
+      throw error;
     }
   };
 
   const handleProviderSignUp = async (data: ProviderSignUpFormData) => {
     try {
+      console.log('=== PROVIDER SIGNUP MODAL DEBUG ===');
+      console.log('Form data:', data);
+      console.log('Calling signUp with provider type');
+      
       await signUp(data.email, data.password, {
         name: data.name,
         type: 'provider',
@@ -90,11 +102,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         description: data.description,
         tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
       });
+      
+      console.log('Provider signup successful, closing modal');
       onClose();
       providerForm.reset();
       setCurrentStep(1);
     } catch (error) {
-      // Error handled by context
+      console.error('PROVIDER SIGNUP MODAL ERROR:', error);
+      // Don't swallow the error - let it bubble up
+      throw error;
     }
   };
 
