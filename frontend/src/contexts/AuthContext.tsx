@@ -106,21 +106,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (session?.user) {
         console.log('User signed in, fetching profile...');
         
-        // Redirect to dashboard after successful OAuth sign in (only if we have user_type param)
+        // Handle OAuth callback - create user profile first, then redirect
         if (event === 'SIGNED_IN' && window.location.pathname === '/evt-mngment/') {
           const urlParams = new URLSearchParams(window.location.search);
           const userTypeFromUrl = urlParams.get('user_type');
           
-          // Only redirect immediately if this is an OAuth callback (has user_type param)
+          // If this is an OAuth callback (has user_type param), create user profile
           if (userTypeFromUrl) {
-            console.log('OAuth redirect to dashboard...');
-            const userType = userTypeFromUrl || session.user.user_metadata?.user_type || 'user';
-            const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
-            console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
+            console.log('OAuth callback detected, creating user profile...');
             
-            // Immediate redirect without waiting for profile fetch
-            window.location.href = redirectPath;
-            return; // Exit early to prevent profile fetch delay
+            try {
+              // Create user profile for OAuth user
+              await createOAuthUserProfile(session.user, userTypeFromUrl);
+              
+              const userType = userTypeFromUrl || 'user';
+              const redirectPath = userType === 'provider' ? '/evt-mngment/provider-dashboard' : '/evt-mngment/dashboard';
+              console.log(`Redirecting ${session.user.email} to ${redirectPath} (user_type: ${userType})`);
+              
+              // Redirect after creating profile
+              window.location.href = redirectPath;
+              return;
+            } catch (error) {
+              console.error('OAuth profile creation failed:', error);
+              toast.error('Failed to complete signup. Please try again.');
+            }
           }
         }
         
@@ -153,6 +162,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const createOAuthUserProfile = async (user: any, userType: string) => {
+    console.log('Creating OAuth user profile:', { userId: user.id, userType, email: user.email });
+    
+    const userData = {
+      id: user.id,
+      name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
+      email: user.email,
+      type: userType
+    };
+    
+    console.log('Inserting OAuth user data:', userData);
+    
+    const { error: profileError } = await supabase
+      .from('users')
+      .insert(userData);
+
+    if (profileError) {
+      // If user already exists, try updating
+      if (profileError.code === '23505') {
+        console.log('OAuth user exists, updating instead...');
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ name: userData.name, type: userType })
+          .eq('id', user.id);
+        
+        if (updateError) {
+          console.error('OAuth profile update error:', updateError);
+          throw updateError;
+        }
+      } else {
+        console.error('OAuth profile creation error:', profileError);
+        throw profileError;
+      }
+    }
+    
+    console.log('OAuth user profile created successfully');
+    
+    // For providers, DON'T create provider profile yet - missing required fields
+    // The provider dashboard will show an onboarding form instead
+  };
 
   const fetchUserProfile = async (userId: string) => {
     console.log('=== DIAGNOSTIC: Starting profile fetch ===');
