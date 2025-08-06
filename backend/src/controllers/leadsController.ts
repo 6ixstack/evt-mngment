@@ -8,7 +8,6 @@ export class LeadsController {
       const {
         provider_id,
         event_id,
-        step_id,
         message
       } = req.body;
 
@@ -33,19 +32,6 @@ export class LeadsController {
         return res.status(404).json({ error: 'Event not found or not authorized' });
       }
 
-      // Validate that the step belongs to the event
-      if (step_id) {
-        const { data: stepData, error: stepError } = await supabase
-          .from('tasks')
-          .select('id, event_id')
-          .eq('id', step_id)
-          .eq('event_id', event_id)
-          .single();
-
-        if (stepError || !stepData) {
-          return res.status(404).json({ error: 'Step not found or not part of this event' });
-        }
-      }
 
       // Validate that the provider exists and is active
       const { data: providerData, error: providerError } = await supabase
@@ -82,7 +68,6 @@ export class LeadsController {
           provider_id,
           event_id,
           user_id: req.user.id,
-          step_id,
           message,
           status: 'new'
         })
@@ -91,13 +76,11 @@ export class LeadsController {
           provider_id,
           event_id,
           user_id,
-          step_id,
           message,
           status,
           created_at,
           providers!leads_provider_id_fkey(id, business_name, provider_type),
-          events!leads_event_id_fkey(id, event_type, prompt),
-          tasks!leads_step_id_fkey(id, step_title, description)
+          events!leads_event_id_fkey(id, event_type, prompt)
         `)
         .single();
 
@@ -131,13 +114,11 @@ export class LeadsController {
           provider_id,
           event_id,
           user_id,
-          step_id,
           message,
           status,
           created_at,
           providers!leads_provider_id_fkey(id, business_name, provider_type, location_city, location_province),
           events!leads_event_id_fkey(id, event_type, prompt),
-          tasks!leads_step_id_fkey(id, step_title, description),
           users!leads_user_id_fkey(id, name, email)
         `);
 
@@ -262,13 +243,11 @@ export class LeadsController {
           provider_id,
           event_id,
           user_id,
-          step_id,
           message,
           status,
           created_at,
           providers!leads_provider_id_fkey(id, business_name, provider_type, location_city, location_province),
           events!leads_event_id_fkey(id, event_type, prompt),
-          tasks!leads_step_id_fkey(id, step_title, description),
           users!leads_user_id_fkey(id, name, email)
         `)
         .single();
