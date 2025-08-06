@@ -263,19 +263,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('User creation failed');
       }
 
-      // Update user profile (trigger already created it)
-      console.log('Updating user profile type to:', userData.type);
+      // Create user profile directly (no trigger dependency)
+      console.log('Creating user profile with type:', userData.type);
       const { error: profileError } = await supabase
         .from('users')
-        .update({
+        .insert({
+          id: authData.user.id,
           name: userData.name,
+          email: authData.user.email || email,
           type: userData.type || 'user'
-        })
-        .eq('id', authData.user.id);
+        });
 
       if (profileError) {
-        console.error('Profile update error:', profileError);
-        throw profileError;
+        // If user already exists (from previous attempt), try updating instead
+        if (profileError.code === '23505') {
+          console.log('User exists, updating instead...');
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({
+              name: userData.name,
+              type: userData.type || 'user'
+            })
+            .eq('id', authData.user.id);
+          
+          if (updateError) {
+            console.error('Profile update error:', updateError);
+            throw updateError;
+          }
+        } else {
+          console.error('Profile creation error:', profileError);
+          throw profileError;
+        }
       }
       
       console.log('User profile updated successfully');
