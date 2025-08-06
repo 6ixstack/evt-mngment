@@ -28,13 +28,12 @@ export const DashboardWrapper: React.FC<DashboardWrapperProps> = ({
         try {
           await createUserProfile(user, oauthUserType);
           toast.success('Welcome! Profile created successfully.');
-          
-          // Clear the stored user type
-          sessionStorage.removeItem('oauth_user_type');
         } catch (error: any) {
           console.error('Failed to create OAuth profile:', error);
           // Don't show error toast - might be a duplicate which is fine
         } finally {
+          // Always clear the stored user type after attempting to use it
+          sessionStorage.removeItem('oauth_user_type');
           setIsSettingUpProfile(false);
         }
       }

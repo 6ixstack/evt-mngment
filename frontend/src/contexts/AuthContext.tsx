@@ -77,6 +77,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (session?.user) {
         await fetchUserProfile(session.user.id);
       } else {
+        // Clear OAuth user type on sign out or auth failure
+        sessionStorage.removeItem('oauth_user_type');
         setUserProfile(null);
         setLoading(false);
       }
@@ -344,6 +346,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Store user type preference for later use
       sessionStorage.setItem('oauth_user_type', userType);
       
+      // Set a timeout to clean up the stored user type if auth fails
+      const cleanupTimeout = setTimeout(() => {
+        sessionStorage.removeItem('oauth_user_type');
+        console.log('OAuth timeout - cleared stored user type');
+      }, 300000); // 5 minutes timeout
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -352,12 +360,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (error) {
+        // Clear the cleanup timeout and remove stored type immediately
+        clearTimeout(cleanupTimeout);
+        sessionStorage.removeItem('oauth_user_type');
         throw error;
       }
 
       // The redirect will happen automatically
+      // Don't clear the timeout here - let it clean up naturally if needed
     } catch (error: any) {
       console.error('Google sign in error:', error);
+      sessionStorage.removeItem('oauth_user_type'); // Ensure cleanup on error
       toast.error(error.message || 'Failed to sign in with Google');
       throw error;
     } finally {
