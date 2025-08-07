@@ -12,6 +12,8 @@ export class StripeController {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
+    console.log('Initializing Stripe with key:', stripeSecretKey ? 'Found' : 'Missing');
+
     if (!stripeSecretKey) {
       throw new Error('STRIPE_SECRET_KEY environment variable is required');
     }
@@ -19,6 +21,8 @@ export class StripeController {
     this.stripe = new Stripe(stripeSecretKey, {
       apiVersion: '2025-07-30.basil'
     });
+    
+    console.log('Stripe initialized successfully');
   }
 
   async handleWebhook(req: Request, res: Response) {
@@ -76,6 +80,7 @@ export class StripeController {
 
   async createCheckoutSession(req: AuthRequest, res: Response) {
     try {
+      console.log('createCheckoutSession called, stripe instance:', !!this.stripe);
       const { success_url, cancel_url } = req.body;
 
       if (!req.user) {
