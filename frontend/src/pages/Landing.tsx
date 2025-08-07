@@ -80,12 +80,43 @@ export const Landing: React.FC = () => {
 
   // Redirect authenticated users to their dashboard
   useEffect(() => {
-    if (!loading && user && userProfile) {
-      const redirectPath = userProfile.type === 'provider' 
-        ? '/provider-dashboard' 
-        : '/dashboard';
-      navigate(redirectPath);
-    }
+    const handleRedirect = async () => {
+      if (loading) return;
+      
+      if (user) {
+        // Check if session is still valid by testing with Supabase
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error || !session) {
+          // Session is invalid or expired, sign out to clear state
+          console.log('Invalid session detected, signing out');
+          await supabase.auth.signOut();
+          return;
+        }
+
+        if (userProfile) {
+          // Normal case: user has profile, redirect to appropriate dashboard
+          const redirectPath = userProfile.type === 'provider' 
+            ? '/provider-dashboard' 
+            : '/dashboard';
+          navigate(redirectPath);
+        } else {
+          // User has valid session but no profile - might be incomplete signup
+          // Try to create basic profile or let OAuth callback handle it
+          console.log('User has valid session but no profile, checking OAuth flow...');
+          
+          // If not OAuth flow, user might have an incomplete account
+          const oauthUserType = sessionStorage.getItem('oauth_user_type');
+          if (!oauthUserType) {
+            // Non-OAuth user without profile - redirect to dashboard anyway
+            // The dashboard can handle missing profile by showing setup form
+            navigate('/dashboard');
+          }
+        }
+      }
+    };
+
+    handleRedirect();
   }, [user, userProfile, loading, navigate]);
 
   const handleAuthModalOpen = (mode: 'signin' | 'signup' | 'provider-signup') => {
