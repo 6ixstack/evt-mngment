@@ -34,6 +34,10 @@ export class StripeController {
 
   async handleWebhook(req: Request, res: Response) {
     try {
+      if (!this.stripe) {
+        return res.status(503).json({ error: 'Stripe is not initialized - webhook processing unavailable' });
+      }
+
       const sig = req.headers['stripe-signature'];
 
       if (!sig) {
@@ -118,7 +122,7 @@ export class StripeController {
 
       // Create Stripe customer if doesn't exist
       if (!customerId) {
-        const customer = await this.stripe.customers.create({
+        const customer = await this.stripe!.customers.create({
           email: req.user.email,
           metadata: {
             user_id: req.user.id
@@ -135,7 +139,7 @@ export class StripeController {
       }
 
       // Create checkout session
-      const session = await this.stripe.checkout.sessions.create({
+      const session = await this.stripe!.checkout.sessions.create({
         customer: customerId,
         mode: 'subscription',
         payment_method_types: ['card'],
@@ -168,6 +172,10 @@ export class StripeController {
 
   async createCustomerPortal(req: AuthRequest, res: Response) {
     try {
+      if (!this.stripe) {
+        return res.status(503).json({ error: 'Stripe is not initialized - customer portal unavailable' });
+      }
+
       if (!req.user) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
@@ -188,7 +196,7 @@ export class StripeController {
       }
 
       // Create customer portal session
-      const session = await this.stripe.billingPortal.sessions.create({
+      const session = await this.stripe!.billingPortal.sessions.create({
         customer: userData.stripe_customer_id,
         return_url: `${process.env.FRONTEND_URL}/provider-dashboard?tab=subscription`,
       });
@@ -208,6 +216,10 @@ export class StripeController {
 
   async createSubscription(req: AuthRequest, res: Response) {
     try {
+      if (!this.stripe) {
+        return res.status(503).json({ error: 'Stripe is not initialized - subscription creation unavailable' });
+      }
+
       const { price_id, payment_method_id } = req.body;
 
       if (!req.user) {
@@ -233,7 +245,7 @@ export class StripeController {
 
       // Create Stripe customer if doesn't exist
       if (!customerId) {
-        const customer = await this.stripe.customers.create({
+        const customer = await this.stripe!.customers.create({
           email: req.user.email,
           metadata: {
             user_id: req.user.id
@@ -251,12 +263,12 @@ export class StripeController {
 
       // Attach payment method to customer
       if (payment_method_id) {
-        await this.stripe.paymentMethods.attach(payment_method_id, {
+        await this.stripe!.paymentMethods.attach(payment_method_id, {
           customer: customerId,
         });
 
         // Set as default payment method
-        await this.stripe.customers.update(customerId, {
+        await this.stripe!.customers.update(customerId, {
           invoice_settings: {
             default_payment_method: payment_method_id,
           },
@@ -264,7 +276,7 @@ export class StripeController {
       }
 
       // Create subscription
-      const subscription = await this.stripe.subscriptions.create({
+      const subscription = await this.stripe!.subscriptions.create({
         customer: customerId,
         items: [{ price: price_id }],
         default_payment_method: payment_method_id,
@@ -291,6 +303,10 @@ export class StripeController {
 
   async cancelSubscription(req: AuthRequest, res: Response) {
     try {
+      if (!this.stripe) {
+        return res.status(503).json({ error: 'Stripe is not initialized - subscription cancellation unavailable' });
+      }
+
       const { subscription_id } = req.body;
 
       if (!req.user) {
@@ -313,14 +329,14 @@ export class StripeController {
       }
 
       // Get subscription to verify ownership
-      const subscription = await this.stripe.subscriptions.retrieve(subscription_id);
+      const subscription = await this.stripe!.subscriptions.retrieve(subscription_id);
       
       if (subscription.customer !== userData.stripe_customer_id) {
         return res.status(403).json({ error: 'Not authorized to cancel this subscription' });
       }
 
       // Cancel subscription at period end
-      const canceledSubscription = await this.stripe.subscriptions.update(subscription_id, {
+      const canceledSubscription = await this.stripe!.subscriptions.update(subscription_id, {
         cancel_at_period_end: true,
       });
 
@@ -375,7 +391,15 @@ export class StripeController {
         });
       }
 
-      // Get active subscriptions from Stripe
+      // Get active subscriptions from Stripe  
+      if (!this.stripe) {
+        return res.json({
+          subscription_status: providerData.subscription_status,
+          has_active_subscription: false,
+          message: 'Stripe unavailable - showing database status only'
+        });
+      }
+
       const subscriptions = await this.stripe.subscriptions.list({
         customer: userData.stripe_customer_id,
         status: 'active',
