@@ -36,34 +36,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user profile
+  // Fetch user profile with timeout
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const fetchPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle(); // Use maybeSingle() instead of single() to avoid PGRST116
 
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
       if (error) {
         console.error('Profile fetch error:', error);
+        setUserProfile(null); // Set to null on error to prevent loading loop
+      } else {
+        setUserProfile(data); // data will be null if no profile found
       }
-      
-      setUserProfile(data); // data will be null if no profile found
     } catch (error) {
       console.error('Profile fetch error:', error);
+      setUserProfile(null); // Ensure profile is set to prevent infinite loading
     }
   };
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        await fetchUserProfile(session.user.id);
       }
-      setLoading(false);
+      
+      setLoading(false); // Always set loading to false after session check
     });
 
     // Listen for auth changes
