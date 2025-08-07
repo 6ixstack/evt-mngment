@@ -13,6 +13,7 @@ export class StripeController {
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
     console.log('Initializing Stripe with key:', stripeSecretKey ? 'Found' : 'Missing');
+    console.log('StripeController instance created at:', new Date().toISOString());
 
     if (!stripeSecretKey) {
       console.warn('STRIPE_SECRET_KEY environment variable is missing - Stripe disabled');
