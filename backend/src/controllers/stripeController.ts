@@ -150,8 +150,8 @@ export class StripeController {
             quantity: 1,
           },
         ],
-        success_url: success_url || `${process.env.FRONTEND_URL}/evt-mngment/provider-dashboard?tab=subscription&success=true`,
-        cancel_url: cancel_url || `${process.env.FRONTEND_URL}/evt-mngment/provider-dashboard?tab=subscription&cancelled=true`,
+        success_url: success_url || `${process.env.FRONTEND_URL}/provider-dashboard?tab=subscription&success=true`,
+        cancel_url: cancel_url || `${process.env.FRONTEND_URL}/provider-dashboard?tab=subscription&cancelled=true`,
         metadata: {
           user_id: req.user.id,
         },
@@ -199,7 +199,7 @@ export class StripeController {
       // Create customer portal session
       const session = await this.stripe!.billingPortal.sessions.create({
         customer: userData.stripe_customer_id,
-        return_url: `${process.env.FRONTEND_URL}/evt-mngment/provider-dashboard?tab=subscription`,
+        return_url: `${process.env.FRONTEND_URL}/provider-dashboard?tab=subscription`,
       });
 
       res.json({
