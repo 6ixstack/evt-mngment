@@ -15,14 +15,20 @@ export class StripeController {
     console.log('Initializing Stripe with key:', stripeSecretKey ? 'Found' : 'Missing');
 
     if (!stripeSecretKey) {
-      throw new Error('STRIPE_SECRET_KEY environment variable is required');
+      console.warn('STRIPE_SECRET_KEY environment variable is missing - Stripe disabled');
+      return;
     }
 
-    this.stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2025-07-30.basil'
-    });
-    
-    console.log('Stripe initialized successfully');
+    try {
+      this.stripe = new Stripe(stripeSecretKey, {
+        apiVersion: '2024-06-20' // Use stable API version instead of preview
+      });
+      
+      console.log('Stripe initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Stripe:', error);
+      // Don't throw error to prevent service crash
+    }
   }
 
   async handleWebhook(req: Request, res: Response) {
@@ -81,6 +87,11 @@ export class StripeController {
   async createCheckoutSession(req: AuthRequest, res: Response) {
     try {
       console.log('createCheckoutSession called, stripe instance:', !!this.stripe);
+      
+      if (!this.stripe) {
+        return res.status(503).json({ error: 'Stripe is not initialized - payment processing unavailable' });
+      }
+      
       const { success_url, cancel_url } = req.body;
 
       if (!req.user) {
