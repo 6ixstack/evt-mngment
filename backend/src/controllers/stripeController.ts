@@ -5,7 +5,7 @@ import { AuthRequest } from '../middleware/auth';
 import { SubscriptionStatus } from '../types';
 
 export class StripeController {
-  private stripe: Stripe;
+  private stripe: Stripe | undefined;
   private webhookSecret: string;
 
   constructor() {
@@ -21,12 +21,13 @@ export class StripeController {
 
     try {
       this.stripe = new Stripe(stripeSecretKey, {
-        apiVersion: '2024-06-20' // Use stable API version instead of preview
+        apiVersion: '2025-07-30.basil' // Keep original API version
       });
       
       console.log('Stripe initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Stripe:', error);
+      this.stripe = undefined;
       // Don't throw error to prevent service crash
     }
   }
