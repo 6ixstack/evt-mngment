@@ -36,12 +36,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user profile with timeout
+  // Fetch user profile with timeout and session validation
   const fetchUserProfile = async (userId: string) => {
     try {
       // Add timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000) // Reduced to 5s
       );
       
       const fetchPromise = supabase
@@ -54,12 +54,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         console.error('Profile fetch error:', error);
+        
+        // If it's an auth error, clear the session
+        if (error.message?.includes('JWT') || error.code === 'PGRST301') {
+          console.log('Authentication error detected, clearing session');
+          await supabase.auth.signOut();
+          return;
+        }
+        
         setUserProfile(null); // Set to null on error to prevent loading loop
       } else {
         setUserProfile(data); // data will be null if no profile found
       }
     } catch (error) {
       console.error('Profile fetch error:', error);
+      
+      // On timeout or network error, also check session validity
+      if (error instanceof Error && error.message.includes('timeout')) {
+        console.log('Profile fetch timed out, checking session validity');
+        const { error: sessionError } = await supabase.auth.getUser();
+        if (sessionError) {
+          console.log('Session is invalid, signing out');
+          await supabase.auth.signOut();
+          return;
+        }
+      }
+      
       setUserProfile(null); // Ensure profile is set to prevent infinite loading
     }
   };
